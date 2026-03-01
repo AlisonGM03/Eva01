@@ -4,35 +4,49 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EVA (Enhanced Voice Assistant) is a multimodal, multilingual voice assistant built on the LangGraph state-machine framework. It supports desktop (WSL/Linux) and mobile (React web app) clients with voice, vision, and tool-use capabilities. Python 3.10+ backend, Next.js frontend.
+EVA01 is an autonomous AI agent that lives on her own — with her own personality, goals, memory, and evolving inner world. She interacts through physical senses (voice + vision) and digital capabilities. Built on LangGraph, Python 3.10+ backend, React + Vite frontend.
+
+Evolving from the original EVA voice assistant toward a fully autonomous agent with persistent state, proactive behavior, and a growing inner life.
+
+## Planning & Research
+
+Reference docs in `planning/` — consult these when working on architecture decisions:
+- `planning/eva01-vision.md` — project vision, proposed graph topology, identity workspace design
+- `planning/langgraph-latest.md` — LangGraph v1.0 features: checkpointers, Runtime context, interrupt(), Store, cron, multi-agent
+- `planning/openclaw-patterns.md` — patterns from OpenClaw: SOUL.md, heartbeat daemon, hybrid memory, smart skill injection
+- `planning/current-codebase-analysis.md` — what to keep, bugs to fix, coupling issues, missing capabilities
+- `planning/cognitive-architecture.md` — three-layer mind model (autonomic/subconscious/conscious), drive engine, thought surfacing via convergence, consolidation
+
+**IMPORTANT**: When doing research, use information no more than 3 month from [Current Date] 
 
 ## Commands
 
-### Run EVA (backend)
+### Run EVA
 ```bash
-python app/main.py
+python main.py
 ```
 Entry point calls `EVA()` which builds a LangGraph, compiles it, and runs the conversation loop indefinitely.
 
-### React frontend (react-eva/)
+### Run EVA API server (mobile mode)
 ```bash
-cd react-eva && npm install && npm run dev
+python server.py
 ```
-Runs on http://localhost:3000. Requires EVA backend running on port 8080 in mobile mode.
+Starts the FastAPI/uvicorn server on port 8080. Requires the React frontend to connect.
 
-### Setup / Install
+### React frontend
 ```bash
-pip install -r requirements.txt
-pip install git+https://github.com/wenet-e2e/wespeaker.git
-python setup.py  # Creates data directories, SQLite DB tables, validates module imports
+cd frontend && npm install && npm run dev
 ```
+Runs on http://localhost:3000. Requires EVA server running on port 8080 in mobile mode.
 
 ### Tests
-No automated test suite exists. `tests/` contains exploratory Jupyter notebooks only.
+```bash
+python -m pytest test/
+```
 
 ## Architecture
 
-### Core Loop (`app/core/eva.py`)
+### Core Loop (`eva/core/eva.py`)
 
 EVA is a LangGraph `StateGraph` with these nodes flowing in a cycle:
 
@@ -47,7 +61,7 @@ initialize → [setup (first-run only)] → converse → action → sense → co
 
 State is tracked in `EvaState` TypedDict with status enum: `THINKING | WAITING | ACTION | END | ERROR | SETUP`.
 
-### Client Layer (`app/client/`)
+### Client Layer (`eva/client/`)
 
 Two client implementations sharing the same interface (`initialize_modules`, `send`, `receive`, `start`, `send_over`, `deactivate`):
 
@@ -56,7 +70,7 @@ Two client implementations sharing the same interface (`initialize_modules`, `se
 
 `DataManager` queues and processes incoming WebSocket messages by type (audio → STT transcription, frontImage/backImage → vision description, over → end-of-turn).
 
-### LLM Agent (`app/utils/agent/`)
+### LLM Agent (`eva/agent/`)
 
 - **ChatAgent** (`chatagent.py`): Primary reasoning engine. Supports 9+ model providers (Claude, ChatGPT, Groq, Gemini, Mistral, Ollama, Grok, DeepSeek, Qwen). Output is structured JSON via `JsonOutputParser` → `AgentOutput` (analysis, strategy, response, premeditation, action list).
 - **SmallAgent** (`smallagent.py`): Lightweight model for memory summarization. Pickle-safe with lazy LLM init.
@@ -64,15 +78,15 @@ Two client implementations sharing the same interface (`initialize_modules`, `se
 
 ### Prompt Design
 
-All prompts use **first-person perspective** ("I am EVA", "I see", "I hear") — this is an intentional design choice for self-awareness. Prompt templates are Markdown files in `app/utils/prompt/` loaded via `load_prompt(name)` and updated via `update_prompt(name, text)`.
+All prompts use **first-person perspective** ("I am EVA", "I see", "I hear") — this is an intentional design choice for self-awareness. Prompt templates are Markdown files in `eva/utils/prompt/` loaded via `load_prompt(name)` and updated via `update_prompt(name, text)`.
 
-### Tools (`app/tools/`)
+### Tools (`eva/tools/`)
 
 Tools extend LangChain `BaseTool`. Each tool file is auto-discovered and instantiated by `ToolManager`. Tools are filtered by `client` attribute ("desktop", "mobile", "all", "none" to disable). Two-phase execution: `_run()` returns data dict for the LLM, optional `run_client()` triggers client-side UI actions (play music, show video, display images).
 
-To add a new tool: create a `.py` file in `app/tools/` following the LangChain `BaseTool` template. To disable: set `client = "none"`.
+To add a new tool: create a `.py` file in `eva/tools/` following the LangChain `BaseTool` template. To disable: set `client = "none"`.
 
-### Subsystems in `app/utils/`
+### Subsystems in `eva/utils/`
 
 | Module | Purpose | Key pattern |
 |--------|---------|-------------|
@@ -81,21 +95,3 @@ To add a new tool: create a `.py` file in `app/tools/` following the LangChain `
 | `vision/` | Webcam + face recognition + image description | `Watcher.glance()` detects scene changes (>40% pixel diff); `Describer` runs face ID + vision model in parallel |
 | `memory/` | Session history + SQLite logging | Async writes via threads; auto-summarizes after 10 entries using `SmallAgent` |
 | `extension/` | Discord/Midjourney image gen, browser window launcher | `MidjourneyServer` polls Discord API; `Window` writes temp HTML + opens in Chromium |
-
-### Identity System (`app/core/ids.py`)
-
-Singleton `IDManager` reads the `ids` SQLite table mapping voice ID filenames (`void`) and photo ID filenames (`pid`) to user names. Used by both `VoiceIdentifier` (wespeaker cosine similarity, threshold 0.7) and face `Identifier` (face_recognition library).
-
-## Configuration
-
-- **`app/config/config.py`**: Central `eva_configuration` dict — set device mode, language, model choices for chat/vision/STT/TTS/summarization
-- **`.env`**: API keys (OpenAI, Anthropic, Google, Groq, ElevenLabs, Tavily, Discord/Midjourney)
-- **`app/data/`**: Runtime data — `database/eva.db` (SQLite), `pids/` (face photos), `voids/` (voice samples), `media/audio/` (generated TTS files)
-
-## Key Conventions
-
-- Module initialization uses `functools.partial` for deferred construction with a `tqdm` progress bar (`app/core/functions.py`)
-- Memory writes are always asynchronous (threaded) to avoid blocking the conversation loop
-- The React frontend uses push-to-talk (spacebar) and sends audio as base64 MP3 via WebSocket
-- Session IDs rotate each turn for cache revalidation on audio downloads
-- `.bak` extension on tool files means disabled (e.g., `epad.bak`, `gmail_reader.bak`)

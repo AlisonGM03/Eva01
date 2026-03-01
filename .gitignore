@@ -1,20 +1,23 @@
 .env
 .env.*
 !.env.example
-!react-eva/.env.local
+!frontend/.env.local
 .gitignore
 .cursorignore
+
 __pycache__/
 .vscode/
 dlib/
 tests/
-eva/
 node_modules/
-.next/
+data/
+dist/
+build/
+planning/
+.venv/
 
 *.wav
 *.mp3
 *.db 
 *.bak
 *.jpg
-README_cn.md

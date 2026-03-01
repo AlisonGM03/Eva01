@@ -70,7 +70,7 @@ How to Use:
 
 - 2024-Christmas update: Initialization process improved.<br/>
   Eva now guides the user to complete the initialization process. Record the Voice ID and Photo ID for personalized interaction.
-  You can update the voice or photo ID by replacing the files in app/data/pid/ and app/data/void/.
+  You can update the voice or photo ID by replacing the files in backend/app/data/pid/ and backend/app/data/void/.
 
 - 2024-November update: Multilingual mode.<br/>
   Eva now replies with the same language the user speaks with "Multilingual" language mode.
@@ -105,21 +105,20 @@ EVA is built on LangGraph framework, with some customized modules and tools. Imp
 ## 📁 Project Structure
 
 ```
-EVA/
-├── app/
-│   ├── client/          # Client-side implementation
-│   ├── config/          # Configuration files and log
-│   ├── core/            # Core process
-│   ├── data/            # Data storage
-│   ├── tools/           # Tool implementations
-│   └── utils/           # Utility functions
-│       ├── agent/       # LLM agent classes and functions
-│       ├── memory/      # Memory module classes 
-│       ├── prompt/      # Utility prompts
-│       ├── stt/         # Speech-to-text models and classes
-│       ├── tts/         # Text-to-Speech models and classes
-│       └── vision/      # Vision models and functions
-└── docs/                # Documentation (😩)
+eva01/
+├── backend/
+│   ├── app/
+│   │   ├── client/      # Client-side implementation
+│   │   ├── config/      # Configuration files and log
+│   │   ├── core/        # Core process
+│   │   ├── data/        # Data storage
+│   │   ├── tools/       # Tool implementations
+│   │   └── utils/       # Utility functions
+│   ├── requirements.txt
+│   ├── setup.py
+│   └── .env.example
+├── frontend/            # React + Vite web client
+└── docs/                # Documentation
 
 ```
 
@@ -136,7 +135,7 @@ EVA/
 Clone repository
 ```bash
 git clone https://github.com/Genesis1231/EVA.git
-cd EVA
+cd eva01
 ```
 
 Create virtual environment
@@ -153,17 +152,19 @@ sudo apt-get install -y cmake build-essential ffmpeg chromium mpv
 
 Install Python dependencies
 ```bash
+cd backend
 pip install -r requirements.txt
 pip install git+https://github.com/wenet-e2e/wespeaker.git
 ```
 
 Configure .env with your API keys
 ```bash
-cp .env.example .env
+cp backend/.env.example backend/.env
 ```
 
 Run EVA 
 ```bash
+cd backend
 python app/main.py
 ```
 Similarly, you can run EVA with docker.
@@ -199,7 +200,7 @@ CMD ["python", "/app/main.py"]
 ```
 
 ### 🛠️ Configuration
-configure EVA setting in app/config/config.py 
+configure EVA setting in backend/app/config/config.py 
 
 ```python
 eva_configuration = {
@@ -261,6 +262,7 @@ React verison:
 
 1. Install dependencies:
    ```bash
+   cd frontend
    npm install
    ```
 
@@ -282,8 +284,8 @@ React verison:
 - Image generation tool requires a midjourney account and a private discord server.
   Need include the discord channel information in .env file.
 
-- Add tools: for all langchain supported tools, you can modify app/tools/__init__.py built_in_tools list,
-  If you want to write your own tools, you can just follow the langchain tool template, then place the file in app/tools/ folder.  
+- Add tools: for all langchain supported tools, you can modify backend/app/tools/__init__.py built_in_tools list,
+  If you want to write your own tools, you can just follow the langchain tool template, then place the file in backend/app/tools/ folder.  
 
 - Disable tools: If you want to disable some tools that are not needed, just change the client setting in related .py file.
 
@@ -300,7 +302,7 @@ EVA will shutdown if you say "exit" or "bye"
 There are many ways to personalize EVA for more interesting and enjoyable experience.
 
 ### 👧 Persona
-You can customize EVA's persona by editing the prompt in app/utils/prompt/persona.md.
+You can customize EVA's persona by editing the prompt in backend/app/utils/prompt/persona.md.
 EVA utilize all first-person perspective in prompts to enhance self-awareness. Reference: [First Person Prompting](docs/FirstPersonPrompting.md)
 
 ```python
@@ -312,12 +314,12 @@ My most important goal is to make Adam happy.
 ```
 ### 📷 Setup Photo ID and Voice ID
 EVA can recognize faces and voices of different people.
-- Setup photo IDs by adding a photo with clear face in app/data/pid/.
-- Setup voice IDs by adding recorded speech audio(more than 10s) in app/data/void/.
-- You have to update the 'ids' table in app/data/database/eva.db to link your name to the filename.
+- Setup photo IDs by adding a photo with clear face in backend/app/data/pid/.
+- Setup voice IDs by adding recorded speech audio(more than 10s) in backend/app/data/void/.
+- You have to update the 'ids' table in backend/app/data/database/eva.db to link your name to the filename.
 
 ### 🎤 Speech Voice
-You can customize EVA's voice by changing voice IDs in the TTS class in app/utils/tts/ folder. model_elevenlabs.py, model_openai.py or model_coqui.py. 
+You can customize EVA's voice by changing voice IDs in the TTS class in backend/app/utils/tts/ folder. model_elevenlabs.py, model_openai.py or model_coqui.py. 
 Please refer to the official document of these models for the voice ID options.
 
 

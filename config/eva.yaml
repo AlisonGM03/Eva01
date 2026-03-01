@@ -1,0 +1,42 @@
+# =============================================================================
+# EVA01 CONFIGURATION
+# 
+# Shape the mind and senses of EVA. Adjust the settings below to switch 
+# deployment modes, configure languages, and swap out her neural engines.
+# =============================================================================
+
+system:
+  # Deployment architecture for EVA.
+  # Options: "local", "api"
+  #   - local : Direct access to host hardware (microphone, webcam, speakers).
+  #   - server   : Headless server mode, awaiting connections from the frontend.
+  device: "local"
+
+  # EVA's primary language for reasoning and vocalization.
+  # Options: "en", "zh", "fr", "de", "it", "ja", "ko", "ru", "es", "pt", "nl", "multilingual"
+  language: "en"
+
+  # Base URL for locally hosted inference engines (e.g., Ollama).
+  base_url: "http://localhost:11434"
+
+models:
+  # The core reasoning engine orchestrating EVA's personality and logic.
+  # Common providers: "claude", "groq", "chatgpt", "mistral", "gemini", "llama"
+  # Recommended: "claude-4.0-sonnet" (for highest emotional intelligence)
+  chat: "claude-sonnet-4-6"
+
+  # The visual cortex: how EVA interprets images from her webcam or the user.
+  # Common providers: "openai", "llama3.2", "llava-phi3", "groq"
+  vision: "gpt-5-mini"
+
+  # The auditory cortex: transcribing human speech into text.
+  # Common providers: "whisper", "groq", "faster-whisper"
+  stt: "faster-whisper"
+
+  # The vocal cords: synthesizing EVA's text responses into speech.
+  # Common providers: "coqui", "elevenlabs", "openai"
+  tts: "elevenlabs"
+
+  # The subconscious processor: running quietly to summarize memory and context.
+  # Common providers: "groq", "llama", "chatgpt", "claude", "deepseek-chat"
+  summarize: "deepseek-chat"

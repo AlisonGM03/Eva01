@@ -1,0 +1,27 @@
+[project]
+name = "eva01"
+version = "0.1.1"
+description = "EVA01 — an autonomous AI agent with memory, voice, and vision."
+requires-python = ">=3.10"
+readme = "README.md"
+license = { file = "LICENSE" }
+
+# Runtime dependencies are tracked in requirements.txt.
+# Install in dev mode with: pip install -e .
+dependencies = []
+
+[project.scripts]
+# Run EVA directly from the command line after install:  eva
+eva = "main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+pythonpath = ["."]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["eva*", "config*"]
