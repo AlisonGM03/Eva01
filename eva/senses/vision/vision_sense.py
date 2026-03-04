@@ -1,28 +1,32 @@
 from config import logger
-import threading
+import asyncio
 from pathlib import Path
 
 import numpy as np
 import cv2
 
 from eva.senses.vision.describer import Describer
+from eva.senses.vision.identifier import Identifier
 from eva.senses.vision.webcam import Webcam
 from eva.senses.sense_buffer import SenseBuffer
 
 
 class CameraSense:
-    """Background vision thread — EVA's eyes.
+    """Background vision — EVA's eyes.
 
     Continuously captures frames, detects scene changes,
     and writes descriptions to a shared input buffer.
     """
 
+    _CHANGE_THRESHOLD = 0.4 # The threshold for detecting significant scene changes.
+    _GLANCE_INTERVAL = 5.0 # The interval between camera glances, adjusted to balance performance.
+    _COMPRESSED_SIZE = (320, 240) # The size of the image to be processed.
+    
     def __init__(
         self,
         describer: Describer,
+        identifier: Identifier | None = None,
         source: int | str = 0,
-        change_threshold: float = 0.4,
-        glance_interval: float = 5.0,
     ):
         """
         Args:
@@ -30,59 +34,58 @@ class CameraSense:
                     stream (e.g. "http://198.18.0.1:5000/video" for WSL).
         """
         self.describer = describer
+        self.identifier = identifier
         self.webcam = Webcam(source)
-        self.change_threshold = change_threshold
-        self.glance_interval = glance_interval
 
         self._previous_frame: np.ndarray | None = None
-        self._stop_event = threading.Event()
-        self._thread: threading.Thread | None = None
+        self._stop_event = asyncio.Event()
+        self._task: asyncio.Task | None = None
 
     def start(self, buffer: SenseBuffer) -> None:
-        """Start the background camera thread, writing observations to buffer."""
-        if self._thread is not None and self._thread.is_alive():
+        """Start the background vision task, writing observations to buffer."""
+        if self._task is not None and not self._task.done():
             logger.warning("CameraSense: Already running.")
             return
 
         self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._run, args=(buffer,), daemon=True
-        )
-        self._thread.start()
+        self._task = asyncio.create_task(self._run(buffer))
         logger.info("CameraSense: Started.")
 
-    def stop(self) -> None:
-        """Stop the camera thread and release resources."""
-        if self._thread is None or not self._thread.is_alive():
+    async def stop(self) -> None:
+        """Stop the vision task and release resources."""
+        if self._task is None or self._task.done():
             return
 
         logger.info("CameraSense: Stopping...")
         self._stop_event.set()
-        self._thread.join(timeout=10)
-        self._thread = None
+        await self._task
+        self._task = None
         self.webcam.release()
         logger.info("CameraSense: Stopped.")
 
-    def _run(self, buffer: SenseBuffer) -> None:
+    async def _run(self, buffer: SenseBuffer) -> None:
         """Main loop: capture -> detect change -> describe -> write to buffer."""
         logger.info("CameraSense: Capture loop started.")
 
         while not self._stop_event.is_set():
             try:
-                frame = self.webcam.capture()
+                frame = await asyncio.to_thread(self.webcam.capture)
 
                 if self._has_scene_changed(frame):
-                    logger.info("CameraSense: Scene change detected, describing...")
-                    description = self._describe(frame)
+                    logger.info("CameraSense: Scene change detected, observing...")
+                    observation = await self._observe(frame)
 
-                    if description:
-                        buffer.push("observation", description)
-                        logger.info(f"CameraSense: {description[:80]}...")
+                    if observation:
+                        buffer.push("observation", observation)
+                        logger.info(f"CameraSense: {observation[:80]}...")
 
             except Exception as e:
                 logger.error(f"CameraSense: Capture loop error — {e}")
 
-            self._stop_event.wait(self.glance_interval)
+            try:
+                await asyncio.wait_for(self._stop_event.wait(), timeout=self._GLANCE_INTERVAL)
+            except asyncio.TimeoutError:
+                pass
 
         logger.info("CameraSense: Capture loop stopped.")
 
@@ -99,12 +102,40 @@ class CameraSense:
         change_ratio = changed_pixels / diff.size
         self._previous_frame = gray
 
-        return change_ratio > self.change_threshold
+        return change_ratio > self._CHANGE_THRESHOLD
 
-    def _describe(self, frame: np.ndarray) -> str | None:
-        """Describe frame using vision model with parallel face ID."""
-        resized = cv2.resize(frame, (320, 240))
-        return self.describer.describe("vision", resized)
+    async def _observe(self, frame: np.ndarray) -> str | None:
+        """Run description and face identification in parallel, combine results."""
+        tasks = [self._describe(frame)]
+        if self.identifier:
+            tasks.append(self._identify(frame))
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        description = results[0] if not isinstance(results[0], Exception) else None
+        faces = results[1] if len(results) > 1 and not isinstance(results[1], Exception) else []
+
+        if not description and not faces:
+            return None
+
+        # Combine: "[Alice, unknown person] Two people at desk, one waving"
+        parts = []
+        if faces:
+            names = [f["name"] for f in faces]
+            parts.append(f"[{', '.join(names)}]")
+        if description:
+            parts.append(description)
+
+        return " ".join(parts) if parts else None
+
+    async def _describe(self, frame: np.ndarray) -> str | None:
+        """Describe frame using vision model (async network I/O)."""
+        resized = cv2.resize(frame, self._COMPRESSED_SIZE)
+        return await self.describer.describe(resized)
+
+    async def _identify(self, frame: np.ndarray) -> list[dict]:
+        """Identify faces in frame (CPU-bound via thread pool)."""
+        return await asyncio.to_thread(self.identifier.identify, frame)
 
     def capture_photo(self, save_path: str) -> None:
         """On-demand photo capture (for face registration etc)."""

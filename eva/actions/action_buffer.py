@@ -7,7 +7,6 @@ ActionBuffer: Outgoing event bus for EVA's actions.
 
 from config import logger
 import asyncio
-from collections import Counter
 from dataclasses import dataclass, field
 import time
 from typing import Optional
@@ -42,7 +41,7 @@ class ActionBuffer:
             metadata=metadata or {}
         )
         await self._queue.put(event)
-        logger.debug(f"ActionBuffer: Put <{action_type}> — {Counter(str(content))} words.")
+        logger.debug(f"ActionBuffer: Put <{action_type}> — {len(str(content).split())} words.")
 
     async def get(self) -> ActionEvent:
         """Wait for and retrieve the next action command."""

@@ -25,6 +25,16 @@ class PromptConstructor:
         self.instruction: str = load_prompt("instructions") # default instructions prompt
         
 
+    def build_system(self, timestamp: str) -> str:
+        """Build the system prompt string."""
+        return (
+            f"<PERSONA>{self.persona_prompt}</PERSONA>\n\n"
+            f"<CURRENT_TIME>{timestamp}</CURRENT_TIME>\n\n"
+            f"<INSTRUCTIONS>\n"
+            f"{self.instruction}\n"
+            f"</INSTRUCTIONS>"
+        )
+
     def build_prompt(
         self,
         timestamp: str,
@@ -32,13 +42,7 @@ class PromptConstructor:
     ) -> tuple[str, str]:
         """Build system and human messages. Returns (system, human)."""
 
-        system_prompt = (
-            f"<PERSONA>{self.persona_prompt}</PERSONA>\n\n"
-            f"<CURRENT_TIME>{timestamp}</CURRENT_TIME>\n\n"
-            f"<INSTRUCTIONS>\n"
-            f"{self.instruction}\n"
-            f"</INSTRUCTIONS>"
-        )
+        system_prompt = self.build_system(timestamp)
 
         human_prompt = (
             "<CONTEXT>\n"

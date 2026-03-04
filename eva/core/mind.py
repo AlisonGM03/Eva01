@@ -1,90 +1,128 @@
 """
-eva/core/mind.py — EVA's mind.
+EVA's mind.
 
 Three concurrent components sharing two buffers:
     Senses  →  SenseBuffer  →  Brain  →  ActionBuffer  →  Actions
 """
 
 import asyncio
+from pathlib import Path
+
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from config import logger, eva_configuration
-from eva.agent import ChatAgent
-from eva.senses.sense_buffer import SenseBuffer
-from eva.senses.audio.audio_sense import AudioSense
+from config.config import Config
+from eva.core.graph import build_graph
+from eva.senses import SenseBuffer, AudioSense, CameraSense
+from eva.actions import ActionBuffer, VoiceActor
 from eva.senses.audio.transcriber import Transcriber
-from eva.actions.action_buffer import ActionBuffer
-from eva.actions.voice.voice_actor import VoiceActor
+from eva.senses.vision.describer import Describer
+from eva.senses.vision.identifier import Identifier
 from eva.actions.voice.speaker import Speaker
+from eva.core.people import PeopleDB
+
+DB_PATH = "data/database/eva_graph.db"
 
 
-async def weave(config: dict) -> tuple[SenseBuffer, ActionBuffer, AudioSense, VoiceActor, ChatAgent]:
+def _init_audio(config: Config) -> AudioSense:
+    """Load transcriber and create AudioSense (blocking)."""
+    transcriber = Transcriber(config.STT_MODEL, config.LANGUAGE)
+    return AudioSense(transcriber, keyboard=True)
+
+
+def _init_vision(config: Config) -> CameraSense | None:
+    """Open camera and load vision + face recognition models (blocking). Returns None if unavailable."""
+    try:
+        describer = Describer(config.VISION_MODEL)
+        people_db = PeopleDB()
+        identifier = Identifier(people_db)
+        return CameraSense(describer, identifier=identifier, source=config.CAMERA_URL)
+
+    except Exception as e:
+        logger.warning(f"Vision unavailable — {e}")
+        return None
+
+
+async def weave(config: Config, checkpointer=None):
     """Wire up senses, brain, and actions. Return shared buffers and components."""
-    
+
     logger.debug("Weaving EVA's core components...")
-    
     loop = asyncio.get_running_loop()
-        
+
     # Shared buffers
     action_buffer = ActionBuffer()
     sense_buffer = SenseBuffer()
     sense_buffer.attach_loop(loop)
 
-    # Senses
-    transcriber = Transcriber(config["STT_MODEL"], config["LANGUAGE"])
-    audio_sense = AudioSense(transcriber, keyboard=True)
-    audio_sense.start(sense_buffer)
+    # Senses — init ears and eyes in parallel (both have blocking I/O)
+    camera_sense, audio_sense = await asyncio.gather(
+        asyncio.to_thread(_init_vision, config),
+        asyncio.to_thread(_init_audio, config),
+    )
 
-    # Brain
-    agent = ChatAgent(config["CHAT_MODEL"])
+    audio_sense.start(sense_buffer)
+    if camera_sense:
+        camera_sense.start(sense_buffer)
+
+    # Brain — LangGraph with conversation memory
+    graph = build_graph(config.CHAT_MODEL, action_buffer, checkpointer=checkpointer)
 
     # Actions
-    speaker = Speaker(config["TTS_MODEL"], config["LANGUAGE"])
+    speaker = Speaker(config.TTS_MODEL, config.LANGUAGE)
     voice_actor = VoiceActor(action_buffer, speaker)
 
-    return sense_buffer, action_buffer, audio_sense, voice_actor, agent
+    return sense_buffer, action_buffer, audio_sense, camera_sense, voice_actor, graph
 
 
-async def breathe(sense_buffer: SenseBuffer, action_buffer: ActionBuffer, agent: ChatAgent) -> None:
+async def breathe(sense_buffer: SenseBuffer, graph) -> None:
     """The conscious loop — EVA's mind."""
+
+    config = {"configurable": {"thread_id": "eva-main"}}
 
     while True:
         entry = await sense_buffer.get()
         logger.debug(f"EVA: sensed [{entry.type}] — {entry.content[:60]}")
 
         try:
-            sense = ("I heard: " if entry.type == "audio" else "I see: ") + entry.content
-            response = await agent.arespond(sense=sense)
-            text = response.get("response", "")
-            
-            if text:
-                await action_buffer.put("speak", text)
+            sense = ("I hear: " if entry.type == "audio" else "I see: ") + entry.content
+            human = f"<CONTEXT>\n{sense}\n</CONTEXT>"
+
+            await graph.ainvoke({"messages": [HumanMessage(content=human)]}, config=config)
 
         except Exception as e:
             logger.error(f"EVA: brain error — {e}")
-        
+
         await asyncio.sleep(0.1)
 
 
 async def wake() -> None:
     """Launch EVA — senses, mind, and voice running concurrently."""
     load_dotenv()
-    config = eva_configuration
+    config: Config = eva_configuration
+
+    # Ensure DB directory exists
+    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
 
     logger.debug("EVA is waking up...")
-    sense_buffer, action_buffer, audio_sense, voice_actor, agent = await weave(config)
 
-    try:
-        await asyncio.gather(
-            breathe(sense_buffer, action_buffer, agent),
-            voice_actor.start_loop(),
-        )
-    except (KeyboardInterrupt, asyncio.CancelledError):
-        pass
-    finally:
-        audio_sense.stop()
-        await voice_actor.stop()
-        logger.debug("EVA is falling asleep... Bye!")
+    async with AsyncSqliteSaver.from_conn_string(DB_PATH) as checkpointer:
+        sense_buffer, action_buffer, audio_sense, camera_sense, voice_actor, graph = await weave(config, checkpointer)
+
+        try:
+            await asyncio.gather(
+                breathe(sense_buffer, graph),
+                voice_actor.start_loop(),
+            )
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            pass
+        finally:
+            audio_sense.stop()
+            if camera_sense:
+                await camera_sense.stop()
+            await voice_actor.stop()
+            logger.debug("EVA is falling asleep... Bye!")
 
 
 if __name__ == "__main__":

@@ -1,80 +1,83 @@
-from config import logger
-import os
-import base64
 from pathlib import Path
-from queue import Queue
-from typing import Dict, List
+from typing import List, Dict
 
-try:
-    from eva.core.ids import id_manager
-except Exception:
-    id_manager = None
-    logger.warning("Identifier: id_manager not available, face naming disabled.")
-
-#import face_recognition as fr
 import numpy as np
-import cv2
+from deepface import DeepFace
+
+from config import logger
+from eva.core.people import PeopleDB, FACES_DIR
+
 
 class Identifier:
-    def __init__(self):
-        self._pid_list = None
-        self._ids: List[Dict] = self.initialize_ids()
-        logger.debug(f"Identifier: Ready. {len(self._ids)} IDs loaded.")
+    """EVA's facial recognition — matches faces to people she knows."""
 
-    def initialize_ids(self) -> List[Dict]:
-        self._pid_list = id_manager.get_pid_list() if id_manager else {}
-        pid_directory = Path(__file__).resolve().parents[3] / 'data' / 'pids'
-        if not pid_directory.exists():
-            pid_directory.mkdir(parents=True)
+    _MODEL_NAME = "Facenet512"
+    _DETECTOR_BACKEND = "opencv"
 
-        photo_ids = {}
+    def __init__(self, people_db: PeopleDB):
+        self.people = people_db
+        self._db_path = FACES_DIR
+        self._init_model()
 
-        for filename in os.listdir(pid_directory):
-            if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-                filepath = os.path.join(pid_directory, filename)
-                try:
-                    id = str(len(photo_ids) + 1).zfill(3)
-                    name = os.path.splitext(filename)[0]
-                    image = fr.load_image_file(filepath)
-                    face_encoding = fr.face_encodings(image)
+    def _init_model(self):
+        """Initialize the recognition model."""
+        self._db_path.mkdir(parents=True, exist_ok=True)
+        try:
+            # Pre-load the model to avoid delay on first use
+            DeepFace.build_model(model_name=self._MODEL_NAME)
+            logger.debug(f"Identifier: Loaded {self._MODEL_NAME}.")
+        except Exception as e:
+            logger.warning(f"Identifier: Failed to load identification model — {e}")
 
-                    if face_encoding:
-                        photo_ids[id] = (name, face_encoding[0])
-                    else:
-                        logger.warning(f"Identifier: No faces found in {filename}")
-
-                except Exception as e:
-                    raise Exception(f"Error processing {filename}: {str(e)}")
-
-        return photo_ids
-
-    def _base64_to_numpy(self, base64_str: str) -> np.ndarray:
-        img_array = np.frombuffer(base64.b64decode(base64_str), dtype=np.uint8)
-        return cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-
-    def identify(self, frames: np.ndarray | str, name_queue: Queue) -> None:
-        if isinstance(frames, str):
-            frames = self._base64_to_numpy(frames)
+    def identify(self, frame: np.ndarray) -> List[Dict]:
+        """Identify faces in a frame.
+        
+        Returns:
+            List of dicts with keys: id, name, distance (lower is better).
+        """
+        # Quick check if we have any faces to match against
+        # This is faster than iterating through the database
+        if not any(self._db_path.iterdir()):
+            return []
 
         try:
-            frames = cv2.cvtColor(cv2.resize(frames, (0, 0), fx=0.5, fy=0.5), cv2.COLOR_BGR2RGB)
-
-            face_locations = fr.face_locations(frames)
-            face_encodings = fr.face_encodings(frames, face_locations)
-
-            names = []
-            for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
-                for name, face_id in self._ids.values():
-                    matches = fr.compare_faces([face_id], face_encoding)
-                    if True in matches and self._pid_list and name in self._pid_list:
-                        names.append(self._pid_list[name])
-                        break
-
+            dfs = DeepFace.find(
+                img_path=frame,
+                db_path=str(self._db_path),
+                model_name=self._MODEL_NAME,
+                detector_backend=self._DETECTOR_BACKEND,
+                enforce_detection=False,
+                silent=True,
+            )
         except Exception as e:
-            logger.error(f"Identifier: Failed to identify faces: {str(e)}")
-            return
+            logger.error(f"Identifier: Recognition error — {e}")
+            return []
 
-        name = "unknown" if not names else ", ".join(names)
+        results = []
+        for df in dfs:
+            if df.empty:
+                continue
 
-        if name_queue:
-            name_queue.put(name)
+            # Get the best match (first row)
+            match = df.iloc[0]
+            identity_path = Path(match["identity"])
+            
+            # The person_id is the parent directory name
+            # Structure: data/faces/{person_id}/image.jpg
+            person_id = identity_path.parent.name
+            
+            name = self.people.get_name(person_id)
+            if not name:
+                continue
+
+            self.people.touch(person_id)
+            
+            results.append({
+                "id": person_id,
+                "name": name,
+                # DeepFace.find returns 'distance' (dissimilarity), not confidence.
+                # Lower distance = higher confidence.
+                "distance": match.get("distance", 0.0),
+            })
+
+        return results

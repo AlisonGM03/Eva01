@@ -1,1 +1,0 @@
-Describe what you see as a narrative about the detailed observation within fifty words.

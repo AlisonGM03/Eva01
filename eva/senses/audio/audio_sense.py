@@ -27,7 +27,7 @@ from ..sense_buffer import SenseBuffer
 
 
 class AudioSense:
-    """Background audio thread — EVA's ears.
+    """Background audio thread.
 
     Listens for speech via push-to-talk (keyboard SPACE or an external
     receive_audio() call), transcribes, and writes to the shared SenseBuffer.
@@ -37,7 +37,11 @@ class AudioSense:
     _ESC = 0x1B
     _RELEASE_SILENCE_S = 0.6
 
-    def __init__(self, transcriber: Transcriber, keyboard: bool = True) -> None:
+    def __init__(
+        self, 
+        transcriber: Transcriber = Transcriber(),
+        keyboard: bool = True
+    ) -> None:
         """
         Args:
             transcriber: Transcriber instance (model backend already loaded).
@@ -152,8 +156,7 @@ class AudioSense:
                 result = self.transcriber.transcribe(audio)
                 if result:
                     text, _ = result
-                    # Strip legacy XML wrapper from Transcriber output
-                    text = text.replace("<human_reply>", "").replace("</human_reply>", "").strip()
+
                     buffer.push("audio", text)
                     logger.debug(f"AudioSense: heard — {text[:80]}")
                 else:

@@ -12,12 +12,23 @@ system:
   #   - server   : Headless server mode, awaiting connections from the frontend.
   device: "local"
 
+  # Cognitive mode for EVA.
+  # Options: "basic", "advanced"
+  #   - basic : Basic mode, use stt and vision model to generate text response first.
+  #   - advanced : Advanced mode, directly input image and audio to the chat model.
+  # It is much cheaper to use the basic mode.
+  mode: "basic"
+
   # EVA's primary language for reasoning and vocalization.
   # Options: "en", "zh", "fr", "de", "it", "ja", "ko", "ru", "es", "pt", "nl", "multilingual"
   language: "en"
 
   # Base URL for locally hosted inference engines (e.g., Ollama).
   base_url: "http://localhost:11434"
+
+  # Remote network address for the camera stream. 
+  # Default:  (local Webcam)
+  camera_url: "http://127.0.0.1:5000/video"
 
 models:
   # The core reasoning engine orchestrating EVA's personality and logic.
@@ -26,8 +37,8 @@ models:
   chat: "anthropic:claude-sonnet-4-6"
 
   # The visual cortex: how EVA interprets images from her webcam or the user.
-  # Common providers: "openai", "llama3.2", "llava-phi3", "groq"
-  vision: "gpt-5-mini"
+  # Uses LangChain format "provider:model" — e.g. "openai:gpt-4o-mini", "groq:llama-4-scout-17b-16e-instruct"
+  vision: "openai:gpt-4o-mini"
 
   # The auditory cortex: transcribing human speech into text.
   # Common providers: "whisper", "groq", "faster-whisper"
@@ -41,3 +52,4 @@ models:
   # The subconscious processor: running quietly to summarize memory and context.
   # Common providers: "groq", "llama", "chatgpt", "claude", "deepseek-chat"
   summarize: "deepseek-chat"
+

@@ -98,7 +98,7 @@ class Transcriber:
         
         # if the name is unknown, return content with a new line, there is a new person speaking, save it into a database
 
-        content = f"<human_reply>{text.strip()}</human_reply>"
+        content = f"<human>{text.strip()}</human>"
         print(f"({datetime.now().strftime('%H:%M:%S')}) User: {text}")
         
         return (content, language)
