@@ -1,0 +1,42 @@
+"""EVA's eyes for the internet — searches and queues YouTube videos."""
+
+import asyncio
+import yt_dlp
+from langchain_core.tools import tool
+from eva.actions.action_buffer import ActionBuffer
+
+
+_YDL_OPTS = {"quiet": True, "extract_flat": True, "no_warnings": True}
+
+
+def _search(query: str) -> list[dict]:
+    """Blocking yt-dlp search — runs in a thread."""
+    with yt_dlp.YoutubeDL(_YDL_OPTS) as ydl:
+        results = ydl.extract_info(f"ytsearch3:{query}", download=False)
+    return results.get("entries", [])
+
+
+def make_watch_tool(action_buffer: ActionBuffer):
+    """Create a watch tool bound to the given ActionBuffer."""
+
+    @tool
+    async def watch(query: str) -> str:
+        """Search YouTube and show a video. Use short keyword queries (2-4 words)."""
+        videos = await asyncio.to_thread(_search, query)
+
+        if not videos:
+            return f"I didn't find any videos for '{query}'."
+
+        pick = videos[0]
+        video_id = pick["id"]
+        title = pick.get("title", "Untitled")
+        channel = pick.get("channel") or pick.get("uploader", "Unknown")
+
+        await action_buffer.put(
+            "watch",
+            video_id,
+            {"title": title, "channel": channel},
+        )
+        return f"Queued '{title}' by {channel}."
+
+    return watch

@@ -186,7 +186,7 @@ models:
   vision: "ollama:llava"
   stt: "faster-whisper"
   tts: "kokoro"
-  utility: "deepseek-chat"
+  utility: "ollama:llama3.1"
 ```
 
 ### ▶️ Run 
@@ -241,6 +241,11 @@ eva01 is an ambitious project and contributions are welcome. Whether it's adding
 ## 📄 License 
 
 MIT License — build on this, fork it, make your own AI beings.
+
+
+
+
+
 
 <div align="center">
 <br>

@@ -8,11 +8,19 @@ Pure workflow topology. The ChatAgent owns the LLM and prompt logic.
 """
 
 from datetime import datetime
-from langchain_core.messages import HumanMessage
-from langgraph.graph import MessagesState, StateGraph
+from typing import List, Annotated, TypedDict
+
+from langchain_core.messages import HumanMessage, BaseMessage
+from langgraph.graph import MessagesState, StateGraph, add_messages
 from langgraph.prebuilt import ToolNode
 
 from eva.agent.chatagent import ChatAgent
+from eva.senses.sense_buffer import SenseEntry
+
+
+class EvaState(TypedDict):
+    messages: Annotated[List[BaseMessage], add_messages]
+    present_people: List[str]
 
 
 class Brain:
@@ -31,17 +39,20 @@ class Brain:
     def _build(self, checkpointer):
         agent = self.agent
 
-        async def think(state: MessagesState):
-            response = await agent.think(state["messages"])
+        async def think(state: EvaState):
+            response = await agent.think(
+                state["messages"],
+                present_people=state.get("present_people", []),
+            )
             return {"messages": [response]}
 
-        def route(state: MessagesState):
+        def route(state: EvaState):
             last = state["messages"][-1]
             if hasattr(last, "tool_calls") and last.tool_calls:
                 return "tools"
             return "__end__"
 
-        builder = StateGraph(MessagesState)
+        builder = StateGraph(EvaState)
         builder.add_node("think", think)
         builder.add_node("tools", ToolNode(agent.tools))
 
@@ -58,9 +69,17 @@ class Brain:
             return state.values.get("messages", [])
         return []
 
-    async def invoke(self, sense: str):
+    async def invoke(self, entry: SenseEntry):
         """Send a sensory input through the graph."""
+        prefix = "I hear: " if entry.type == "audio" else "I see: "
+        content = prefix + entry.content
+
+        # Extract face IDs from vision metadata
+        face_ids = []
+        if entry.metadata and "faces" in entry.metadata:
+            face_ids = entry.metadata["faces"]
+
         await self._graph.ainvoke(
-            {"messages": [HumanMessage(content=sense)]},
+            {"messages": [HumanMessage(content=content)], "present_people": face_ids},
             config=self._config,
         )

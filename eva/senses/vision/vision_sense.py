@@ -18,6 +18,7 @@ class CameraSense:
     and writes descriptions to a shared input buffer.
     """
 
+    _PIXEL_DIFF_THRESHOLD = 10 # The threshold for detecting significant pixel differences.
     _CHANGE_THRESHOLD = 0.4 # The threshold for detecting significant scene changes.
     _GLANCE_INTERVAL = 5.0 # The interval between camera glances, adjusted to balance performance.
     _COMPRESSED_SIZE = (320, 240) # The size of the image to be processed.
@@ -76,10 +77,11 @@ class CameraSense:
 
                 if self._has_scene_changed(frame):
                     logger.info("CameraSense: Scene change detected, observing...")
-                    observation = await self._observe(frame)
+                    observation, face_ids = await self._observe(frame)
 
                     if observation:
-                        buffer.push("observation", observation)
+                        metadata = {"faces": face_ids} if face_ids else None
+                        buffer.push("observation", observation, metadata=metadata)
                         logger.info(f"CameraSense: {observation[:80]}...")
 
             except Exception as e:
@@ -101,25 +103,33 @@ class CameraSense:
             return True
 
         diff = cv2.absdiff(gray, self._previous_frame)
-        changed_pixels = np.count_nonzero(diff > 10)
+        changed_pixels = np.count_nonzero(diff > self._PIXEL_DIFF_THRESHOLD)
         change_ratio = changed_pixels / diff.size
         self._previous_frame = gray
 
         return change_ratio > self._CHANGE_THRESHOLD
 
-    async def _observe(self, frame: np.ndarray) -> str | None:
-        """Run description and face identification in parallel, combine results."""
-        tasks = [self._describe(frame)]
-        if self.identifier:
-            tasks.append(self._identify(frame))
+    async def _observe(self, frame: np.ndarray) -> tuple[str | None, list[str]]:
+        """Run description and face identification in parallel, combine results.
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        Returns (observation_text, face_ids) — face_ids are PeopleDB IDs for recognized faces.
+        """
+        async def _no_faces():
+            return []
 
-        description = results[0] if not isinstance(results[0], Exception) else None
-        faces = results[1] if len(results) > 1 and not isinstance(results[1], Exception) else []
+        description, faces = await asyncio.gather(
+            self._describe(frame),
+            self._identify(frame) if self.identifier else _no_faces(),
+            return_exceptions=True,
+        )
+        description = description if not isinstance(description, Exception) else None
+        faces = faces if not isinstance(faces, Exception) else []
 
         if not description and not faces:
-            return None
+            return None, []
+
+        # Extract face IDs for known people
+        face_ids = [f["id"] for f in faces if f.get("id")]
 
         # Combine: "[Alice, unknown person] Two people at desk, one waving"
         parts = []
@@ -129,7 +139,7 @@ class CameraSense:
         if description:
             parts.append(description)
 
-        return " ".join(parts) if parts else None
+        return (" ".join(parts) if parts else None), face_ids
 
     async def _describe(self, frame: np.ndarray) -> str | None:
         """Describe frame using vision model (async network I/O)."""

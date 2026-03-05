@@ -55,7 +55,7 @@ async def weave(config: Config, checkpointer: AsyncSqliteSaver = None):
     audio_sense.start(sense_buffer)
 
     # Brain — ChatAgent owns LLM + tools, Brain owns workflow
-    agent = ChatAgent(config.CHAT_MODEL, action_buffer, memory=memory_db)
+    agent = ChatAgent(config.CHAT_MODEL, action_buffer, memory=memory_db, people_db=people_db)
     brain = Brain(agent, checkpointer=checkpointer)
 
     return sense_buffer, action_buffer, audio_sense, camera_sense, voice_actor, brain, memory_db
@@ -66,14 +66,9 @@ async def breathe(sense_buffer: SenseBuffer, brain: Brain) -> None:
 
     while True:
         entry = await sense_buffer.get()
-        logger.debug(f"EVA: sensed [{entry.type}] — {entry.content[:60]}")
 
         try:
-            sense = ("I hear: " if entry.type == "audio" else "I see: ") + entry.content
-            print(f"   [DBG] brain invoked with: {sense[:60]}")
-            await brain.invoke(sense)
-            print("   [DBG] brain done")
-
+            await brain.invoke(entry)
         except Exception as e:
             logger.error(f"EVA: brain error — {e}")
 

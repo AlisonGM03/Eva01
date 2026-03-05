@@ -14,17 +14,21 @@ from typing import Optional, Dict, Any, List
 @dataclass
 class SenseEntry:
     """A single perception event from any sense modality."""
-    type: str               # e.g., "observation", "audio", "user_message"
+    type: str 
     content: str
     timestamp: datetime = field(default_factory=datetime.now)
-    
+    metadata: Optional[Dict[str, Any]] = None
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the sense entry to a dictionary."""
-        return {
+        d = {
             "type": self.type,
             "content": self.content,
             "timestamp": self.timestamp,
         }
+        if self.metadata:
+            d["metadata"] = self.metadata
+        return d
 
 
 class SenseBuffer:
@@ -57,7 +61,7 @@ class SenseBuffer:
     # Producer side (sync — safe to call from any thread)
     # ------------------------------------------------------------------
 
-    def push(self, type: str, content: str) -> None:
+    def push(self, type: str, content: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         """Enqueue a sense event.  Safe to call from any plain thread.
 
         If the event loop is attached, schedules put_nowait on the loop
@@ -65,7 +69,7 @@ class SenseBuffer:
         Queue from outside the loop's thread).  If no loop is attached yet,
         holds the entry in a plain list so nothing is lost during startup.
         """
-        entry = SenseEntry(type=type, content=content)
+        entry = SenseEntry(type=type, content=content, metadata=metadata)
         if self._loop is not None and self._loop.is_running():
             self._loop.call_soon_threadsafe(self._queue.put_nowait, entry)
         else:

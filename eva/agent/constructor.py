@@ -10,31 +10,68 @@ PromptConstructor:
 from config import logger
 from pydantic import BaseModel, Field
 from eva.utils.prompt import load_prompt
+from eva.core.people import PeopleDB
 
 class PromptConstructor:
     """
     PromptConstructor class:
-    
+
     Attributes:
         persona_prompt (str): The persona prompt loaded from the persona.md file.
         instruction_prompt (str): The instruction prompt loaded from the instructions.md file.
     """
-    
-    def __init__(self):
+
+    def __init__(self, people_db: PeopleDB = None):
         self.soul: str = load_prompt("SOUL") # default persona prompt
         self.instructions: str = load_prompt("INSTRUCTIONS") # default instructions prompt
-        
+        self.people_db = people_db
 
-    def build_system(self, timestamp: str, memory: str = None) -> str:
+    def build_system(self, timestamp: str, memory: str = None, present_people: list[str] = None) -> str:
         """Build the system prompt string."""
         prompt = (
             f"<PERSONA>{self.soul}</PERSONA>\n\n"
             f"<INSTRUCTIONS>\n"
             f"{self.instructions}\n"
-            f"</INSTRUCTIONS>"        
+            f"</INSTRUCTIONS>"
         )
+
+        people_block = self._build_people_block(present_people)
+        if people_block:
+            prompt += f"\n\n{people_block}"
+
         if memory:
             prompt += f"\n\n<MEMORY>\n{memory}\n</MEMORY>"
-        
+
         prompt += f"\n\n<CURRENT_TIME>{timestamp}</CURRENT_TIME>\n\n"
         return prompt
+
+    def _build_people_block(self, present_people: list[str] | None) -> str | None:
+        """Build <PEOPLE> block from face IDs currently visible to EVA."""
+        if not present_people or not self.people_db:
+            return None
+
+        entries = []
+        for person_id in present_people:
+            person = self.people_db.get(person_id)
+            if not person:
+                continue
+
+            name = person["name"]
+            rel = person.get("relationship") or "unknown"
+            notes = person.get("notes") or ""
+
+            entry = f"{name} ({rel})"
+            if notes:
+                # Take the last note block (most recent impression)
+                blocks = notes.strip().split("\n\n## ")
+                last = blocks[-1] if blocks else ""
+                if last and not last.startswith("## "):
+                    last = "## " + last
+                entry += f"\n{last}"
+
+            entries.append(entry)
+
+        if not entries:
+            return None
+
+        return "<PEOPLE>\n" + "\n\n".join(entries) + "\n</PEOPLE>"
