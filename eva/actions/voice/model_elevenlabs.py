@@ -96,7 +96,7 @@ class ElevenLabsSpeaker:
             logger.error(f"Error during ElevenLabs synthesis: {e}")
             return None
 
-    async def stop_playback(self) -> None:
-        """Stop the audio playback."""
+    def stop_playback(self) -> None:
+        """Stop the audio playback. Thread-safe."""
         if hasattr(self, 'audio_player'):
             self.audio_player.stop_playback()

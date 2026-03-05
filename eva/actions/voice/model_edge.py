@@ -81,8 +81,8 @@ class EdgeSpeaker:
             logger.error(f"Error during Edge TTS synthesis: {e}")
             return None
 
-    async def stop_playback(self) -> None:
-        """Stop audio playback."""
+    def stop_playback(self) -> None:
+        """Stop audio playback. Thread-safe."""
         try:
             self.audio_player.stop_playback()
         except Exception:

@@ -33,13 +33,14 @@ class VoiceActor:
         self.buffer = action_buffer
         self.speaker = speaker or Speaker()
         self.music_player = AudioPlayer()          # dedicated music channel
-        
+
         # Tasks
         self.current_speech_task: Optional[asyncio.Task] = None
         self.current_music_task: Optional[asyncio.Task] = None
         self._loop_task: Optional[asyncio.Task] = None
-        
+
         self._running = False
+        self.is_speaking: bool = False
 
     async def start_loop(self):
         """Start the voice actor loop."""
@@ -50,37 +51,50 @@ class VoiceActor:
         while self._running:
             try:
                 command = await self.buffer.get()
-                
-                if command.type == "speak" and command.content:
-                    # Cancel any existing speech
-                    if self.current_speech_task and not self.current_speech_task.done():
-                        self.current_speech_task.cancel()
-                        await self.speaker.stop_speaking()
-                    
-                    language = command.metadata.get("language", "en")
-                    # Launch new speech in a background task
-                    self.current_speech_task = asyncio.create_task(
-                        self.speaker.speak(command.content, language)
-                    )
-
-                elif command.type == "interrupt":
-                    # Instantly stop speaking
-                    if self.current_speech_task and not self.current_speech_task.done():
-                        self.current_speech_task.cancel()
-                        if hasattr(self.speaker, 'stop_speaking'):
-                            await self.speaker.stop_speaking()
-                        logger.info("Voice actor interrupted speech.")
+                await self._handle_command(command)
                         
             except asyncio.CancelledError:
                 logger.debug("Voice Actor loop cancelled.")
                 self._running = False
-                if self.current_speech_task and not self.current_speech_task.done():
-                    self.current_speech_task.cancel()
+                await self._cancel_speech()
                 break
             
             except Exception as e:
                 logger.error(f"Voice Actor error: {e}")
     
+    async def _handle_command(self, command):
+        """Dispatch command to appropriate handler."""
+        if command.type == "speak" and command.content:
+            await self._handle_speak(command)
+        elif command.type == "interrupt":
+            await self._handle_interrupt()
+
+    async def _handle_speak(self, command):
+        """Handle speak command: cancel current speech and start new one."""
+        await self._cancel_speech()
+
+        language = command.metadata.get("language", "en")
+        self.is_speaking = True
+        
+        # Create new speech task
+        self.current_speech_task = asyncio.create_task(
+            self.speaker.speak(command.content, language)
+        )
+        self.current_speech_task.add_done_callback(
+            lambda _: setattr(self, 'is_speaking', False)
+        )
+
+    async def _handle_interrupt(self):
+        """Handle interrupt command: stop current speech."""
+        if self.current_speech_task and not self.current_speech_task.done():
+            await self._cancel_speech()
+            logger.info("Voice actor interrupted speech.")
+
+    async def _cancel_speech(self):
+        """Cancel current speech task and stop speaker output."""
+        if self.current_speech_task and not self.current_speech_task.done():
+            self.current_speech_task.cancel()
+        self.speaker.stop_speaking()
                 
     async def play_music(self, url: str) -> None:
         """Start/replace background music. Does not interrupt speech."""
@@ -91,12 +105,18 @@ class VoiceActor:
         """Stop background music only. Does not interrupt speech."""
         if self.current_music_task and not self.current_music_task.done():
             self.current_music_task.cancel()
+            # Wait for task to actually cancel to ensure cleanup
+            try:
+                await self.current_music_task
+            except asyncio.CancelledError:
+                pass
             self.current_music_task = None
 
     async def _music_loop(self, url: str) -> None:
         """Runs music playback in a thread. Cleans up mpv on cancel."""
         try:
-            await asyncio.to_thread(self.music_player.stream, url)
+            # Fixed: AudioPlayer has play_stream, not stream
+            await asyncio.to_thread(self.music_player.play_stream, url)
         except asyncio.CancelledError:
             self.music_player.stop_playback()
             raise
@@ -104,13 +124,11 @@ class VoiceActor:
     async def stop(self):
         """Stop the Voice Actor and all audio channels."""
         self._running = False
-        logger.debug("Voice Actor stopped.")
+        logger.debug("Voice Actor stopping...")
 
         if self._loop_task and not self._loop_task.done():
             self._loop_task.cancel()
 
-        if self.current_speech_task and not self.current_speech_task.done():
-            self.current_speech_task.cancel()
-            await self.speaker.stop_speaking()
-
+        await self._cancel_speech()
         await self.stop_music()
+        logger.debug("Voice Actor stopped.")

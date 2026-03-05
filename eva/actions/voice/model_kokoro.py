@@ -107,7 +107,7 @@ class KokoroSpeaker:
             logger.error(f"Error during Kokoro TTS: {e}")
             return None
 
-    async def stop_playback(self) -> None:
-        """Stop the audio playback."""
+    def stop_playback(self) -> None:
+        """Stop the audio playback. Thread-safe."""
         sd.stop()  # Kokoro owns sounddevice; stop it here, not in AudioPlayer
         self.audio_player.stop_playback()

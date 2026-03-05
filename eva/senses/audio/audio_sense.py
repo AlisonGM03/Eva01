@@ -40,16 +40,19 @@ class AudioSense:
     def __init__(
         self,
         transcriber: Transcriber = None,
-        keyboard: bool = True
+        keyboard: bool = True,
+        voice_actor=None,
     ) -> None:
         """
         Args:
             transcriber: Transcriber instance (model backend already loaded).
             keyboard:    When True, starts a keyboard PTT input thread on start().
                          Set False when only WebSocket audio is expected.
+            voice_actor: Optional VoiceActor for interrupt-on-speak.
         """
         self.transcriber = transcriber or Transcriber()
         self._keyboard = keyboard
+        self._voice_actor = voice_actor
         self._mic = Microphone()
         
         # Audio queues
@@ -125,6 +128,11 @@ class AudioSense:
 
             while not self._stop_event.is_set():
                 if self._await_space_press():
+                    # Interrupt EVA if she's speaking
+                    if self._voice_actor and self._voice_actor.is_speaking:
+                        self._voice_actor.speaker.stop_speaking()
+                        logger.debug("AudioSense: interrupted speech.")
+
                     if not self._mic.start_recording():
                         logger.error("AudioSense: microphone failed to start")
                         continue

@@ -6,12 +6,9 @@ Speaker factory: selects TTS model (edge/elevenlabs/kokoro) and delegates.
 """
 
 from datetime import datetime
-from config import logger
+from config import logger, DATA_DIR
 from typing import Dict, Callable, Optional
 from pathlib import Path
-
-
-_DATA_PATH = Path(__file__).resolve().parents[3] / 'data' / 'media'
 
 class Speaker:
     """
@@ -71,9 +68,9 @@ class Speaker:
         
         return model()
 
-    async def stop_speaking(self) -> None:
-        """ Stop the speaker model """
-        await self.model.stop_playback()
+    def stop_speaking(self) -> None:
+        """ Stop the speaker model. Thread-safe. """
+        self.model.stop_playback()
         
     async def speak(self, answer: str, language: Optional[str] = "en"):
         """ Speak the given text using the selected speaker model """
@@ -86,7 +83,7 @@ class Speaker:
         
     async def get_audio(self, text: str) -> str:
         """ Generate audio from text and save it to the media folder """
-        return await self.model.generate_audio(text, self._language, _DATA_PATH)
+        return await self.model.generate_audio(text, self._language, DATA_DIR / 'media')
     
 
         
