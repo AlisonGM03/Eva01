@@ -176,7 +176,7 @@ class MemoryDB:
         if not self._pen:
             return conversation
 
-        prompt = self._journal_prompt.replace("{conversation}", conversation)
+        prompt = self._journal_prompt.format(conversation=conversation)
         try:
             response = await self._pen.ainvoke(prompt)
             return response.content.strip()

@@ -23,10 +23,10 @@ from eva.actions.voice.speaker import Speaker
 from eva.core.people import PeopleDB
 
 
-async def weave(config: Config, checkpointer: AsyncSqliteSaver = None):
+async def weave(config: Config, checkpointer: AsyncSqliteSaver | None = None):
     """Wire up senses, brain, and actions. Return shared buffers and components."""
 
-    logger.debug("Weaving EVA's core components...")
+    logger.debug("Assembling EVA's core components...")
     loop = asyncio.get_running_loop()
 
     # Shared buffers
@@ -42,7 +42,7 @@ async def weave(config: Config, checkpointer: AsyncSqliteSaver = None):
     describer = Describer(config.VISION_MODEL)
     identifier = Identifier(people_db)
     camera_sense = CameraSense(describer, identifier=identifier, source=config.CAMERA_URL)
-    if camera_sense:
+    if camera_sense.is_available:
         camera_sense.start(sense_buffer)
 
     # Actions — register handlers on the shared buffer
@@ -75,9 +75,6 @@ async def breathe(sense_buffer: SenseBuffer, brain: Brain) -> None:
             await brain.invoke(entry)
         except Exception as e:
             logger.error(f"EVA: brain error — {e}")
-
-        await asyncio.sleep(0.1)
-
 
 async def wake() -> None:
     """Launch EVA — senses, mind, and voice running concurrently."""

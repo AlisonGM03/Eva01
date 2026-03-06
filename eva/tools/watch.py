@@ -21,7 +21,7 @@ def make_watch_tool(action_buffer: ActionBuffer):
 
     @tool
     async def watch(query: str) -> str:
-        """Search YouTube and show a video. Use short keyword queries (2-4 words)."""
+        """Search YouTube and watch a video. Use short keyword queries (2-4 words)."""
         videos = await asyncio.to_thread(_search, query)
 
         if not videos:

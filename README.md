@@ -1,6 +1,6 @@
 <div align="center"> 
 
-![EVA01](docs/logo.png)
+![EVA01](docs/banner.jpg)
 
 **'She often dreams about being a real human girl.'**
 
@@ -39,7 +39,9 @@ She doesn't *help*. She has her own goals. She doesn't execute tasks. She *decid
 
 If you like Eva01, please give her ⭐⭐, it keeps us motivated. Thank you!
 
-## 🧠 Upgraded Architecture 
+## 🧠 Architecture V2
+
+EVA01 runs as a **concurrent pipeline** — senses feed into a shared buffer, the brain consumes and reasons, and actions flow out through another buffer to output actors.
 
 ```text
      Senses       →             Mind         →        Actions
@@ -115,22 +117,27 @@ These aren't scripted behaviors. They're scoring functions that compete for EVA'
 ```text
 eva01/
 ├── eva/
-│   ├── core/           # Brain — app lifecycle
-│   │   ├── graph.py    # StateGraph with ReAct loop
-│   │   ├── app.py      # Main entry, sense initialization
-│   │   ├── memory.py   # MemoryDB (journal, distillation, flush)
-│   │   └── people.py   # PeopleDB (people memory)
-│   ├── agent/          # LLM interface — dynamic prompt construction, tools, distillation
-│   │   ├── chatagent.py    # Multimodal support, tool calling, history distillation
-│   │   └── constructor.py  # System prompt assembly
-│   ├── senses/         # Perception — async camera + threaded audio
-│   │   ├── audio/      # Microphone, transcription, STT models
-│   │   └── vision/     # Webcam, scene detection, cloud vision, face ID
-│   ├── actions/        # Output — voice synthesis, action buffer
-│   │   └── voice/      # TTS models (kokoro, edge, elevenlabs)
-│   ├── tools/          # EVA's tools — feel, speak, and extensible
-│   └── utils/prompt/   # Core prompts
-├── config/             # YAML config  
+│   ├── core/           # Mind — app lifecycle, graph, memory
+│   │   ├── app.py      # weave(), breathe(), wake() — wires senses, brain, actions
+│   │   ├── graph.py    # Brain: StateGraph with ReAct loop (think → tools → think)
+│   │   ├── memory.py   # MemoryDB: journal distillation, flush on shutdown, relationship extraction
+│   │   ├── journal.py  # JournalDB: episodic + knowledge SQLite store
+│   │   └── people.py   # PeopleDB: face IDs, names, relationship notes
+│   ├── agent/          # LLM interface
+│   │   ├── chatagent.py    # think(), tool binding, context assembly
+│   │   ├── constructor.py  # System prompt assembly (first-person, memory, present people)
+│   │   └── schema.py       # Structured outputs (e.g. PeopleReflection)
+│   ├── senses/         # Perception — async camera, threaded audio
+│   │   ├── sense_buffer.py # Incoming event queue (SenseEntry), thread-safe push
+│   │   ├── audio/      # AudioSense, mic, transcriber, STT models (faster-whisper)
+│   │   └── vision/     # CameraSense, webcam, describer, identifier (DeepFace)
+│   ├── actions/        # Output — event bus and actors
+│   │   ├── action_buffer.py # Outgoing event queue, handler registration
+│   │   ├── voice/      # VoiceActor, Speaker, TTS models (kokoro, edge, elevenlabs)
+│   │   └── screen.py   # Screen: watch handler (YouTube queue)
+│   ├── tools/          # Auto-discovered — feel, speak, watch
+│   └── utils/prompt/   # Core prompts (journal, relationships, etc.)
+├── config/             # YAML config (eva.yaml), Config model
 ├── frontend/           # React + Vite web interface (in progress)
 ├── data/               # SQLite databases 
 └── test/               # Test suite
@@ -209,7 +216,7 @@ eva01 is an evolving project. Here's where she's headed:
 - [x] **New memory system** — log, episodic journal and semantic knowledge
 - [x] **New face recognition** — eva01 remembers who she's met 
 - [x] **Enhanced Inner world** — feelings and inner monologue shape responses
-- [x] **New tool system** — Simplified, more focused, and more powerful
+- [x] **New tool system** — auto-discovery, more focused, and more powerful
 - [ ] **Cognitive architecture** — three-layer mind (autonomic → subconscious → conscious)
 - [ ] **Drive system** — intrinsic motivation (curiosity, play, meaning, evolution, relatedness)
 - [ ] **Proactive behavior** — eva acts on her own goals, not just user input

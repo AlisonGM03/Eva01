@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 from datetime import datetime, timezone
 from typing import Dict
 from config import logger, DATA_DIR
@@ -8,16 +9,27 @@ class PeopleDB:
     """EVA's memory of people she's met."""
 
     def __init__(self):
+        self._conn = None
+        self._lock = threading.RLock()
         self._cache = None
         self.init_db()
         logger.debug(f"PeopleDB: {len(self._cache)} people in memory.")
 
     def _connect(self) -> sqlite3.Connection:
         """Connect to the database."""
-        db_path = DATA_DIR / "database" / "eva.db"
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        with self._lock:
+            if self._conn is None:
+                db_path = DATA_DIR / "database" / "eva.db"
+                self._conn = sqlite3.connect(db_path, check_same_thread=False)
+                self._conn.row_factory = sqlite3.Row
+            return self._conn
+
+    def close(self):
+        """Close the database connection."""
+        with self._lock:
+            if self._conn:
+                self._conn.close()
+                self._conn = None
 
     def init_db(self) -> None:
         """Initialize the database."""
@@ -27,22 +39,24 @@ class PeopleDB:
 
     def _create_table(self) -> None:
         """Create the people table if it doesn't exist."""
-        with self._connect() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS people (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    relationship TEXT,
-                    first_seen TIMESTAMP,
-                    last_seen TIMESTAMP,
-                    notes TEXT
-                )
-            """)
+        with self._lock:
+            with self._connect() as conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS people (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        relationship TEXT,
+                        first_seen TIMESTAMP,
+                        last_seen TIMESTAMP,
+                        notes TEXT
+                    )
+                """)
 
     def _load_all(self) -> Dict[str, Dict]:
         """Load all people from the database."""
-        with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM people").fetchall()
+        with self._lock:
+            with self._connect() as conn:
+                rows = conn.execute("SELECT * FROM people").fetchall()
         return {row["id"]: dict(row) for row in rows}
 
     def get(self, person_id: str) -> Dict | None:
@@ -69,11 +83,12 @@ class PeopleDB:
         face_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            with self._connect() as conn:
-                conn.execute(
-                    "INSERT INTO people (id, name, relationship, first_seen, last_seen) VALUES (?, ?, ?, ?, ?)",
-                    (person_id, name, relationship, now, now),
-                )
+            with self._lock:
+                with self._connect() as conn:
+                    conn.execute(
+                        "INSERT INTO people (id, name, relationship, first_seen, last_seen) VALUES (?, ?, ?, ?, ?)",
+                        (person_id, name, relationship, now, now),
+                    )
             self._cache[person_id] = {
                 "id": person_id, "name": name, "relationship": relationship,
                 "first_seen": now, "last_seen": now, "notes": None,
@@ -88,8 +103,9 @@ class PeopleDB:
         """Update last_seen to now."""
         now = datetime.now(timezone.utc).isoformat()
         try:
-            with self._connect() as conn:
-                conn.execute("UPDATE people SET last_seen = ? WHERE id = ?", (now, person_id))
+            with self._lock:
+                with self._connect() as conn:
+                    conn.execute("UPDATE people SET last_seen = ? WHERE id = ?", (now, person_id))
             if person_id in self._cache:
                 self._cache[person_id]["last_seen"] = now
         except sqlite3.Error as e:
@@ -106,8 +122,9 @@ class PeopleDB:
         updated = f"{existing}\n\n{entry}".strip() if existing else entry
 
         try:
-            with self._connect() as conn:
-                conn.execute("UPDATE people SET notes = ? WHERE id = ?", (updated, person_id))
+            with self._lock:
+                with self._connect() as conn:
+                    conn.execute("UPDATE people SET notes = ? WHERE id = ?", (updated, person_id))
             self._cache[person_id]["notes"] = updated
             logger.debug(f"PeopleDB: noted impression for {person_id}.")
         except sqlite3.Error as e:

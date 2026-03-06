@@ -42,6 +42,10 @@ class CameraSense:
         self._stop_event = asyncio.Event()
         self._task: asyncio.Task | None = None
 
+    @property
+    def is_available(self) -> bool:
+        return self.webcam.camera is not None
+
     def start(self, buffer: SenseBuffer) -> None:
         """Start the background vision task, writing observations to buffer."""
         if self.webcam.camera is None:
@@ -57,14 +61,22 @@ class CameraSense:
 
     async def stop(self) -> None:
         """Stop the vision task and release resources."""
-        if self._task is None or self._task.done():
+        if self._task is None:
+            self.webcam.release()
+            return
+
+        if self._task.done():
+            self._task = None
+            self.webcam.release()
             return
 
         logger.info("CameraSense: Stopping...")
         self._stop_event.set()
-        await self._task
-        self._task = None
-        self.webcam.release()
+        try:
+            await self._task
+        finally:
+            self._task = None
+            self.webcam.release()
         logger.info("CameraSense: Stopped.")
 
     async def _run(self, buffer: SenseBuffer) -> None:

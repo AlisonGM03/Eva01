@@ -15,13 +15,21 @@ from config import logger
 from eva.actions.action_buffer import ActionBuffer
 from eva.agent.constructor import PromptConstructor
 from eva.core.people import PeopleDB
+from eva.core.memory import MemoryDB
 from eva.tools import load_tools
 
 
 class ChatAgent:
     """EVA's brain process — wraps LLM + tools + prompt into a single think() call."""
 
-    def __init__(self, model_name: str, action_buffer: ActionBuffer, memory=None, people_db: PeopleDB = None) -> None:
+    def __init__(
+        self, 
+        model_name: str, 
+        action_buffer: ActionBuffer, 
+        people_db: PeopleDB,
+        memory: Optional[MemoryDB] = None,
+    )-> None:
+        
         self.model_name = model_name
         self.memory = memory
         self.constructor = PromptConstructor(people_db=people_db)
@@ -30,29 +38,37 @@ class ChatAgent:
 
         logger.debug(f"ChatAgent: {model_name} ready with {len(self.tools)} tools.")
 
-    async def think(self, messages: list, present_people: list[str] = None) -> AIMessage:
+    async def think(self, messages: list, present_people: list[str]) -> AIMessage:
         """Distill history, trim, inject system prompt, invoke LLM."""
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
 
         if self.memory:
             distilled, journal = self.memory.prepare_context(messages)
-            system = self.constructor.build_system(timestamp, memory=journal or None, present_people=present_people)
+            system = self.constructor.build_system(
+                timestamp=timestamp, 
+                memory=journal, 
+                present_people=present_people
+            )
         else:
             distilled = messages
-            system = self.constructor.build_system(timestamp, present_people=present_people)
+            system = self.constructor.build_system(
+                timestamp=timestamp, 
+                present_people=present_people
+            )
 
+        # Optional: Cap the input tokens
         trimmed = trim_messages(distilled, max_tokens=8000, token_counter='approximate')
 
         response = await self._llm.ainvoke([SystemMessage(content=system)] + trimmed)
 
-        usage = response.usage_metadata
-        if usage:
+        # resource usage logging
+        if usage := response.usage_metadata:
             logger.debug(
                 f"LLM({self.model_name}) — "
-                f"input: {usage['input_tokens']/1000:.1f}k  "
-                f"output: {usage['output_tokens']/1000:.1f}k  "
-                f"total: {usage['total_tokens']/1000:.1f}k"
+                f"input: {usage.get('input_tokens', 0)/1000:.1f}k  "
+                f"output: {usage.get('output_tokens', 0)/1000:.1f}k  "
+                f"total: {usage.get('total_tokens', 0)/1000:.1f}k"
             )
 
         return response

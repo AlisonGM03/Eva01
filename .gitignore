@@ -1,0 +1,40 @@
+CLAUDE.md
+.env
+!.env.example
+!frontend/.env.local
+
+# Python
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.venv/
+*.bak
+
+# Frontend
+frontend/
+**/node_modules/
+**/dist/
+frontend/.env.local
+
+# Project Specific
+.claude/
+.cursor/
+.vscode/
+.cursorignore
+tests/
+planning/
+test/
+
+# Data and Media
+data/
+planning/
+
+*.wav
+*.mp3
+*.db 
+*.bak
+*.jpg
+
+# OS
+.DS_Store
+Thumbs.db
