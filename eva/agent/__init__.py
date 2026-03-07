@@ -1,2 +1,2 @@
-from .chatagent import ChatAgent
+from .cortex import Cortex
 # from .smallagent import SmallAgent

@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from config import logger, eva_configuration, DATA_DIR, Config
-from eva.agent.chatagent import ChatAgent
+from eva.agent.cortex import Cortex
 from eva.core.graph import Brain
 from eva.core.memory import MemoryDB
 from eva.senses import SenseBuffer, AudioSense, CameraSense
@@ -70,8 +70,8 @@ async def weave(
     audio_sense = AudioSense(transcriber, keyboard=True, voice_actor=voice_actor)
     audio_sense.start(sense_buffer)
 
-    # Brain — ChatAgent owns LLM + tools, Brain owns workflow + memory
-    agent = ChatAgent(config.CHAT_MODEL, action_buffer, people_db=people_db)
+    # Brain — Cortex owns LLM + tools, Brain owns workflow + memory
+    agent = Cortex(config.CHAT_MODEL, action_buffer, people_db=people_db)
     brain = Brain(agent, memory=memory_db, checkpointer=checkpointer)
 
     return sense_buffer, action_buffer, audio_sense, camera_sense, voice_actor, brain

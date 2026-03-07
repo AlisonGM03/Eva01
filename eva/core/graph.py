@@ -4,7 +4,7 @@ EVA's brain — a LangGraph StateGraph with ReAct tool loop.
 Graph: START → think → tool calls? → yes → tools → think
                                     → no  → END
 
-Pure workflow topology. The ChatAgent owns the LLM and prompt logic.
+Pure workflow topology. The Cortex owns the LLM and prompt logic.
 """
 
 from datetime import datetime
@@ -15,7 +15,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, add_messages
 from langgraph.prebuilt import ToolNode
 
-from eva.agent.chatagent import ChatAgent
+from eva.agent.cortex import Cortex
 from eva.core.memory import MemoryDB
 from eva.senses.sense_buffer import SenseEntry
 
@@ -28,7 +28,7 @@ class EvaState(TypedDict):
 class Brain:
     """EVA's brain graph — orchestrates agent, memory, and workflow."""
 
-    def __init__(self, agent: ChatAgent, memory: MemoryDB, checkpointer=None):
+    def __init__(self, agent: Cortex, memory: MemoryDB, checkpointer=None):
         self.agent = agent
         self.memory = memory
         self.thread_id = self._new_thread_id()
@@ -51,7 +51,7 @@ class Brain:
         async def think(state: EvaState):
             """ The "think" node — EVA processes messages and decides on tool calls."""
             distilled, journal = await memory.prepare_context(state["messages"])
-            response = await agent.think(
+            response = await agent.respond(
                 distilled,
                 present_people=state.get("present_people", []),
                 journal=journal,

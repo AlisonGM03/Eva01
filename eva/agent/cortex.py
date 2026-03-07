@@ -1,8 +1,8 @@
 """
-ChatAgent: EVA's language model interface.
+Cortex: EVA's language faculty.
 
 Owns the LLM, tools, and prompt construction.
-The graph calls agent.think(messages) — everything else is internal.
+Brain calls cortex.respond(messages) — everything else is internal.
 """
 
 from datetime import datetime
@@ -16,8 +16,8 @@ from eva.core.people import PeopleDB
 from eva.tools import load_tools
 
 
-class ChatAgent:
-    """EVA's brain process — wraps LLM + tools + prompt into a single think() call."""
+class Cortex:
+    """EVA's language cortex — wraps LLM + tools + prompt into a single respond() call."""
 
     _TEMPERATURE = 0.8  # creative but not too random
 
@@ -26,7 +26,7 @@ class ChatAgent:
         model_name: str,
         action_buffer: ActionBuffer,
         people_db: PeopleDB,
-    )-> None:
+    ) -> None:
 
         self.model_name = model_name
         self.constructor = PromptConstructor(people_db=people_db)
@@ -36,10 +36,10 @@ class ChatAgent:
             temperature=self._TEMPERATURE
         ).bind_tools(self.tools)
 
-        logger.debug(f"ChatAgent: {model_name} ready with {len(self.tools)} tools.")
+        logger.debug(f"Cortex: {model_name} ready with {len(self.tools)} tools.")
 
-    async def think(self, messages: list, present_people: list[str], journal: str = "") -> AIMessage:
-        """Trim messages, inject system prompt, invoke LLM."""
+    async def respond(self, messages: list, present_people: list[str], journal: str = "") -> AIMessage:
+        """Construct prompt, trim messages, invoke LLM, return response."""
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
         system = self.constructor.build_system(
@@ -49,7 +49,7 @@ class ChatAgent:
         )
 
         # Optional: Cap the input tokens
-        trimmed = trim_messages(distilled, max_tokens=8000, token_counter='approximate')
+        trimmed = trim_messages(messages, max_tokens=8000, token_counter='approximate')
 
         try:
             response = await self._llm.ainvoke([SystemMessage(content=system)] + trimmed)
