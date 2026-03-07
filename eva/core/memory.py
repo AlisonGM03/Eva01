@@ -34,7 +34,7 @@ class MemoryDB:
         self._pen = init_chat_model(utility_model)
         self._people = people_db
         
-        logger.debug(f"MemoryDB: ready (utility_model={self._pen}).")
+        logger.debug(f"MemoryDB: ready (utility_model={utility_model}).")
 
     # ── Distillation ─────────────────────────────────────────
 

@@ -8,7 +8,6 @@ PromptConstructor:
 """
 
 from config import logger
-from pydantic import BaseModel, Field
 from eva.utils.prompt import load_prompt
 from eva.core.people import PeopleDB
 
@@ -21,7 +20,7 @@ class PromptConstructor:
         instruction_prompt (str): The instruction prompt loaded from the instructions.md file.
     """
 
-    def __init__(self, people_db: PeopleDB = None):
+    def __init__(self, people_db: PeopleDB):
         self.soul: str = load_prompt("SOUL") # default persona prompt
         self.instructions: str = load_prompt("INSTRUCTIONS") # default instructions prompt
         self.people_db = people_db

@@ -61,6 +61,14 @@ class PeopleDB:
         """Get all people from the database."""
         return self._cache
 
+    def get_id_name_map(self) -> Dict[str, str]:
+        """Get a lightweight snapshot of known people: id -> name."""
+        return {
+            person_id: person["name"]
+            for person_id, person in self._cache.items()
+            if person.get("name")
+        }
+
     async def add(self, person_id: str, name: str, relationship: str | None = None) -> bool:
         """Register a new person to the database."""
         if person_id in self._cache:
