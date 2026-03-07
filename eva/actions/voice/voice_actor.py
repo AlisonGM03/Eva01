@@ -95,8 +95,9 @@ class VoiceActor:
             raise
 
     async def stop(self):
-        """Stop all audio channels."""
+        """Stop all audio channels and release models."""
         logger.debug("Voice Actor stopping...")
         await self._cancel_speech()
         await self.stop_music()
+        self.speaker.close()
         logger.debug("Voice Actor stopped.")

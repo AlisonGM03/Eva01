@@ -56,16 +56,22 @@ class Transcriber:
         return create_model()
     
 
-    def transcribe(self, audioclip) -> Optional[Tuple[str, str]]:  
+    def transcribe(self, audioclip) -> Optional[Tuple[str, str]]:
         """ Transcribe the given audio clip. """
-        
+
         transcription = self.model.transcribe_audio(audioclip)
         if not transcription:
             return None
-        
+
         text, language = transcription
-        
+
         # Format content for the system
         content = f"<human>{text.strip()}</human>"
-        
+
         return (content, language)
+
+    def close(self) -> None:
+        """Release the underlying model resources."""
+        if hasattr(self.model, 'close'):
+            self.model.close()
+            logger.debug("Transcriber: Model released.")

@@ -104,5 +104,13 @@ class KokoroSpeaker:
 
     def stop_playback(self) -> None:
         """Stop the audio playback. Thread-safe."""
-
         self.audio_player.stop_playback()
+
+    def close(self) -> None:
+        """Release the ONNX session and voice data."""
+        if hasattr(self, '_model') and self._model:
+            self._model.sess._sess = None
+            self._model.sess = None
+            self._model.voices = None
+            self._model = None
+            logger.debug("KokoroSpeaker: ONNX session released.")

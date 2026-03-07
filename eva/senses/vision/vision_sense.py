@@ -62,12 +62,12 @@ class CameraSense:
     async def stop(self) -> None:
         """Stop the vision task and release resources."""
         if self._task is None:
-            self.webcam.release()
+            self._release()
             return
 
         if self._task.done():
             self._task = None
-            self.webcam.release()
+            self._release()
             return
 
         logger.debug("CameraSense: Stopping...")
@@ -76,8 +76,14 @@ class CameraSense:
             await self._task
         finally:
             self._task = None
-            self.webcam.release()
+            self._release()
         logger.debug("CameraSense: Stopped.")
+
+    def _release(self) -> None:
+        """Release webcam and vision models."""
+        self.webcam.release()
+        if self.identifier:
+            self.identifier.close()
 
     async def _run(self, buffer: SenseBuffer) -> None:
         """Main loop: capture -> detect change -> describe -> write to buffer."""

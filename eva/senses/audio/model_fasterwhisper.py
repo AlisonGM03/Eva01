@@ -72,9 +72,10 @@ class FWTranscriber:
     def close(self) -> None:
         """Explicitly release resources."""
         if hasattr(self, 'model') and self.model:
+            self.model.model.unload_model()
             del self.model
             self.model = None
-            
+
         if self.device == "cuda":
             torch.cuda.empty_cache()
 

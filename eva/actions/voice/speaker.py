@@ -21,12 +21,12 @@ class Speaker:
     """
     
     def __init__(self, speaker_model: str = "kokoro", language: str = "en")-> None:
-        self._model: str = speaker_model.upper()
+        self._model_name: str = speaker_model.upper()
         self._language: str = language
         
         self.model = self._initialize_model()
         
-        logger.debug(f"Speaker: {self._model} is ready.")
+        logger.debug(f"Speaker: {self._model_name} is ready.")
     
     def _get_model_factory(self) -> Dict[str, Callable]:
         return {
@@ -62,9 +62,9 @@ class Speaker:
     
     def _initialize_model(self):
         model_factory = self._get_model_factory()
-        model = model_factory.get(self._model)
+        model = model_factory.get(self._model_name)
         if model is None:
-            raise ValueError(f"Error: Model {self._model} is not supported.")
+            raise ValueError(f"Error: Model {self._model_name} is not supported.")
         
         return model()
 
@@ -84,6 +84,9 @@ class Speaker:
     async def get_audio(self, text: str) -> str:
         """ Generate audio from text and save it to the media folder """
         return await self.model.generate_audio(text, self._language, DATA_DIR / 'media')
-    
 
-        
+    def close(self) -> None:
+        """Release the underlying TTS model resources."""
+        if hasattr(self.model, 'close'):
+            self.model.close()
+            logger.debug(f"Speaker: {self._model_name} Model released.")

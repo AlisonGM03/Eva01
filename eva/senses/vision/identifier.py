@@ -118,3 +118,19 @@ class Identifier:
             )
 
         return results
+
+    def close(self) -> None:
+        """Release the face recognition model and TF session from memory."""
+        from deepface.modules import modeling
+
+        self._people_lookup.clear()
+        if hasattr(modeling, "cached_models"):
+            modeling.cached_models.clear()
+
+        try:
+            import keras
+            keras.backend.clear_session()
+        except Exception:
+            pass
+
+        logger.debug(f"Identifier: Model {self._MODEL_NAME} released.")

@@ -101,6 +101,7 @@ class AudioSense:
         self._process_thread.join(timeout=3)
         self._process_thread = None
 
+        self.transcriber.close()
         logger.debug("AudioSense: Stopped.")
 
     # ------------------------------------------------------------------
