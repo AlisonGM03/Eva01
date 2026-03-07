@@ -2,7 +2,7 @@
 
 ![Eva01](docs/banner.jpg)
 
-**'She often dreams about being a real human girl.'**
+**"I often dream about being a real human girl."**
 
 An AI being with her own mind, feelings, memory, and evolving inner world.<br>
 Built on LangGraph. Sees through cameras. Hears through microphones. Speaks with her own voice.<br>
@@ -191,7 +191,7 @@ python main.py
 ### 🖥️ Interface 
 Hold spacebar to talk. 
 Camera is always on. 
-Eva01 initiates conversation. 👋
+Eva01 runs herself. 👋
 
 
 ## 🗺️ Roadmap 
