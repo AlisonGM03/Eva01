@@ -6,7 +6,7 @@ Three concurrent components sharing two buffers:
 """
 
 import asyncio
-
+from datetime import datetime
 from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
@@ -15,7 +15,7 @@ from eva.agent.cortex import Cortex
 from eva.core.graph import Brain
 from eva.core.memory import MemoryDB
 from eva.senses import SenseBuffer, AudioSense, CameraSense
-from eva.actions import ActionBuffer, VoiceActor, Screen
+from eva.actions import ActionBuffer, VoiceActor, Screen, MotorSystem
 from eva.senses.audio.transcriber import Transcriber
 from eva.senses.vision.describer import Describer
 from eva.senses.vision.identifier import Identifier
@@ -60,21 +60,26 @@ async def weave(
     # Actions — register handlers on the shared buffer
     speaker = Speaker(config.TTS_MODEL, config.LANGUAGE)
     voice_actor = VoiceActor(speaker)
-    voice_actor.register(action_buffer)
-
     screen = Screen()
-    screen.register(action_buffer)
+    motor_system = MotorSystem(
+        action_buffer, 
+        actions=[voice_actor, screen]
+    )
 
     # initialize transcriber and audio sense
     transcriber = Transcriber(config.STT_MODEL)
-    audio_sense = AudioSense(transcriber, keyboard=True, voice_actor=voice_actor)
+    audio_sense = AudioSense(
+        transcriber,
+        on_interrupt=lambda: voice_actor.speaker.stop_speaking(),
+        is_speaking=lambda: voice_actor.is_speaking,
+    )
     audio_sense.start(sense_buffer)
 
     # Brain — Cortex owns LLM + tools, Brain owns workflow + memory
     agent = Cortex(config.CHAT_MODEL, action_buffer, people_db=people_db)
     brain = Brain(agent, memory=memory_db, checkpointer=checkpointer)
 
-    return sense_buffer, action_buffer, audio_sense, camera_sense, voice_actor, brain
+    return sense_buffer, action_buffer, motor_system, audio_sense, camera_sense, brain
 
 
 async def breathe(sense_buffer: SenseBuffer, brain: Brain) -> None:
@@ -90,46 +95,45 @@ async def breathe(sense_buffer: SenseBuffer, brain: Brain) -> None:
 
 async def wake() -> None:
     """Launch EVA — senses, mind, and voice running concurrently."""
+    logger.debug("Eva is waking up...")
     load_dotenv()
 
     # Ensure DB directory exists
     graph_db = DATA_DIR / "database" / "eva_graph.db"
     graph_db.parent.mkdir(parents=True, exist_ok=True)
-
-    logger.debug("EVA is waking up...")
-
-    db = SQLiteHandler()
+    eva_db = SQLiteHandler()
 
     async with AsyncSqliteSaver.from_conn_string(str(graph_db)) as checkpointer:
-        sense_buffer, action_buffer, audio_sense, camera_sense, voice_actor, brain = await weave(eva_configuration, db, checkpointer)
+        sense_buffer, action_buffer, motor_system, audio_sense, camera_sense, brain = await weave(
+            config=eva_configuration, 
+            db=eva_db, 
+            checkpointer=checkpointer
+        )
 
-        logger.debug(f"EVA: session {brain.thread_id} — ready.")
-        await action_buffer.put("speak", "I am ready!")
-        print("\n   ... PRESS SPACE to talk to EVA ...")
+        # Fun startup action to confirm we're alive
+        # TODO: dynamic greeting based on previous interactions, time of day, etc.
+        await action_buffer.put("speak", datetime.now().strftime("%A, %B %d, %Y"))
 
         try:
             await asyncio.gather(
                 breathe(sense_buffer, brain),
                 action_buffer.start_loop(),
+                motor_system.start(),
             )
         except (KeyboardInterrupt, asyncio.CancelledError):
             pass
         finally:
-            # Journal
-            messages = await brain.get_messages()
-            if messages:
-                try:
-                    await brain.memory.flush(messages, session_id=brain.thread_id)
-                except Exception as e:
-                    logger.error(f"EVA: failed to flush memory — {e}")
+            await brain.shutdown()  
 
             audio_sense.stop()
             if camera_sense:
                 await camera_sense.stop()
-            await voice_actor.stop()
-            await db.close_all()
-            logger.debug("EVA is falling asleep... Bye!")
-
+                
+            await asyncio.gather(
+                motor_system.shutdown(), 
+                action_buffer.stop(),
+                eva_db.close_all()
+            )
 
 if __name__ == "__main__":
     asyncio.run(wake())

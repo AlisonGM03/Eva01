@@ -6,8 +6,15 @@ Brain calls cortex.respond(messages) — everything else is internal.
 """
 
 from datetime import datetime
+from typing import List, Set
 from langchain.chat_models import init_chat_model
-from langchain_core.messages import SystemMessage, AIMessage, trim_messages
+from langchain_core.messages import (
+    SystemMessage, 
+    AIMessage,
+    BaseMessage, 
+    HumanMessage, 
+    trim_messages
+)
 
 from config import logger
 from eva.actions.action_buffer import ActionBuffer
@@ -38,10 +45,16 @@ class Cortex:
 
         logger.debug(f"Cortex: {model_name} ready with {len(self.tools)} tools.")
 
-    async def respond(self, messages: list, present_people: list[str], journal: str = "") -> AIMessage:
+    async def respond(
+        self, 
+        messages: List[BaseMessage], 
+        present_people: Set[str], 
+        journal: str = ""
+    ) -> AIMessage:
         """Construct prompt, trim messages, invoke LLM, return response."""
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        timestamp = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
+
         system = self.constructor.build_system(
             timestamp=timestamp,
             memory=journal,
@@ -51,8 +64,16 @@ class Cortex:
         # Optional: Cap the input tokens
         trimmed = trim_messages(messages, max_tokens=8000, token_counter='approximate')
 
+        prompt_messages = trimmed or messages
+        
+        if not any(isinstance(m, HumanMessage) for m in prompt_messages):
+            prompt_messages = [HumanMessage(content="[Now live your life.]")] + prompt_messages
+
+        complete_prompt = [SystemMessage(content=system)] + prompt_messages
+        # logger.debug(f"Complete prompt for LLM:\n{complete_prompt}\n\n")
+        
         try:
-            response = await self._llm.ainvoke([SystemMessage(content=system)] + trimmed)
+            response = await self._llm.ainvoke(complete_prompt)
         except Exception as e:
             logger.error(f"LLM ainvoke failed: {e}")
             # Fallback to a safe AIMessage to prevent the agent from crashing

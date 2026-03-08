@@ -129,43 +129,36 @@ class CameraSense:
         return change_ratio > self._CHANGE_THRESHOLD
 
     async def _observe(self, frame: np.ndarray) -> tuple[str | None, List[str]]:
-        """Run description and face identification in parallel, combine results.
+        """Identify faces first, then describe scene with names for coherent output.
 
         Returns (observation_text, face_ids) — face_ids are PeopleDB IDs for recognized faces.
         """
 
-        description, faces = await asyncio.gather(
-            self._describe(frame),
-            self._identify(frame),
-            return_exceptions=True,
-        )
-        
-        description = description if not isinstance(description, BaseException) else None
-        faces = faces if not isinstance(faces, BaseException) else []
+        # Step 1: Identify faces (fast, ~65ms)
+        try:
+            faces = await self._identify(frame)
+        except Exception as e:
+            logger.error(f"CameraSense: Identification error — {e}")
+            faces = []
 
-        if not description and not faces:
-            return None, []
-
-        # Extract face IDs for known people
+        # Extract names for the describer
+        face_names = [f["name"] for f in faces] if faces else None
         face_ids = [f["id"] for f in faces if f.get("id")]
 
-        # Combine: "I see Alice — sitting at desk, waving."
-        if faces:
-            names = ", ".join(f["name"] for f in faces)
-            if description:
-                desc = description[0].lower() + description[1:] if description else ""
-                observation = f"I see {names} — {desc}"
-            else:
-                observation = f"I see {names}."
-        else:
-            observation = f"I see {description}" if description else None
+        # Step 2: Describe scene with identified names (slow, network I/O)
+        try:
+            description = await self._describe(frame, names=face_names)
+        except Exception as e:
+            logger.error(f"CameraSense: Description error — {e}")
+            description = None
 
+        observation = f"I see {description}" if description else None
         return observation, face_ids
 
-    async def _describe(self, frame: np.ndarray) -> str | None:
+    async def _describe(self, frame: np.ndarray, names: list[str] | None = None) -> str | None:
         """Describe frame using vision model (async network I/O)."""
         resized = cv2.resize(frame, self._COMPRESSED_SIZE)
-        return await self.describer.describe(resized)
+        return await self.describer.describe(resized, names=names)
 
     async def _identify(self, frame: np.ndarray) -> List[Dict]:
         """Identify faces in frame (CPU-bound via thread pool)."""

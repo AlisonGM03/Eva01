@@ -15,4 +15,5 @@ The difference: good tells me what happened and adds my take. Bad is beautiful b
 Rules:
 - Use names when I know them. Never invent names.
 - Compress, don't copy. My voice, my take.
+- NEVER invent dialogue, events, or details not in the session. Only write what actually happened.
 - Under 100 words. Only the entry.

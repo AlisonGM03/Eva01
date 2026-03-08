@@ -1,8 +1,7 @@
 """
-AudioPlayer: Audio playback for streams and files. All methods are blocking — wrap with asyncio.to_thread() in async contexts.
-  play_stream(path) -> plays file/url via mpv, blocks until done
-  play_pcm(samples, sample_rate) -> plays raw PCM via sounddevice
-  stop_playback() -> stops any playing audio
+AudioPlayer: Audio playback for streams and files. 
+All methods are blocking — wrap with asyncio.to_thread() in async contexts.
+
 """
 
 from typing import Optional

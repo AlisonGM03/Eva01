@@ -44,6 +44,8 @@ class MemoryDB:
     @staticmethod
     def distill(messages: list) -> list:
         """Collapse completed feel/speak tool cycles into clean AIMessages.
+        to de-noise and preserve the essence of feelings and speech for memory/journal.
+        SAVE TOKENS too!
 
         Only distills PREVIOUS turns (before the last HumanMessage).
         The current turn stays raw so the ReAct loop can continue.
@@ -145,15 +147,14 @@ class MemoryDB:
 
     # ── Flush ────────────────────────────────────────────────
 
-    async def flush(self, messages: list, session_id: str) -> bool:
+    async def flush(self, messages: list, session_id: str) -> None:
         """
         Summarize a full session into a journal entry via the utility LLM.
         Called on shutdown/recovery to save the session to the journal.
         """
         if not messages:
             logger.debug("MemoryDB: nothing to flush.")
-            self.clear_session_people()
-            return False
+            return
 
         # Distill entire session (treat all messages as history)
         distilled = self.distill(messages)
@@ -168,11 +169,15 @@ class MemoryDB:
 
         if not parts:
             logger.debug("MemoryDB: distilled to nothing, skipping flush.")
-            self.clear_session_people()
-            return False
+            return
 
         conversation = "\n".join(parts)
         logger.debug(f"MemoryDB: writing journal entry for conversation:\n{conversation}")
+        
+        # Skip journaling for trivially short sessions (e.g. a single observation)
+        if len(conversation.split()) < 30:
+            logger.debug("MemoryDB: session too short to journal, skipping.")
+            return
         
         try:
             # Journal the session via utility LLM
@@ -183,9 +188,10 @@ class MemoryDB:
 
             await self._journal.add(journal, session_id)
             logger.debug(f"MemoryDB: journaled session: {journal}.")
-            return True
-        finally:
-            self.clear_session_people()
+            return
+        except Exception as e:
+            logger.error(f"MemoryDB: failed to flush memory — {e}")
+            return
 
     async def _reflect_messages(self, conversation: str) -> str:
         """Reflect on a conversation and return a journal entry."""

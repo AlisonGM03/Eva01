@@ -5,9 +5,10 @@ Logs for now — frontend WebSocket wiring comes later.
 
 from config import logger
 from .action_buffer import ActionBuffer, ActionEvent
+from .base import BaseAction
 
 
-class Screen:
+class Screen(BaseAction):
     """Visual action handler — EVA's screen output."""
 
     def register(self, buffer: ActionBuffer) -> None:

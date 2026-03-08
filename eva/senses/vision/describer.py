@@ -46,11 +46,12 @@ class Describer:
             logger.error(f"Describer: model invocation failed — {e}")
             return None
         
-    async def describe(self, image_data: np.ndarray | str) -> str | None:
+    async def describe(self, image_data: np.ndarray | str, names: list[str] | None = None) -> str | None:
         try:
             image_base64 = self._convert_base64(image_data)
-            prompt = load_prompt("vision")  
-        
+            names_line = f"\nPeople identified: {', '.join(names)}. Refer to them by name." if names else ""
+            prompt = load_prompt("vision").format(names_line=names_line)
+
             return await self._generate(image_base64, prompt)
         except Exception as e:
             logger.error(f"Describer: failed — {e}")

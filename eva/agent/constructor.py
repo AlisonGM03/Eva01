@@ -7,6 +7,7 @@ PromptConstructor:
     - observations and inputs
 """
 
+from typing import List, Set
 from config import logger
 from eva.utils.prompt import load_prompt
 from eva.core.people import PeopleDB
@@ -29,7 +30,7 @@ class PromptConstructor:
         self, 
         timestamp: str, 
         memory: str = "", 
-        present_people: list[str] = []
+        present_people: Set[str] = set()
         ) -> str:
         """Build the system prompt string."""
         
@@ -53,10 +54,10 @@ class PromptConstructor:
 
         prompt += f"\n\n<CURRENT_TIME>{timestamp}</CURRENT_TIME>\n\n"
         
-        logger.debug(f"Constructed system prompt:\n{prompt}")
+        # logger.debug(f"Constructed system prompt:\n{prompt}")
         return prompt
 
-    def _build_people_block(self, present_people: list[str] | None) -> str :
+    def _build_people_block(self, present_people: Set[str] | None) -> str :
         """Build <PEOPLE> block from face IDs currently visible to EVA."""
         
         if not present_people or not self.people_db:

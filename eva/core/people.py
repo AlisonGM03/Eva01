@@ -135,7 +135,8 @@ class PeopleDB:
         if person_id not in self._cache:
             return
 
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        timestamp = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
+ 
         entry = f"## {timestamp}\n\n{impression.strip()}"
         existing = self._cache[person_id].get("notes") or ""
         updated = f"{existing}\n\n{entry}".strip() if existing else entry

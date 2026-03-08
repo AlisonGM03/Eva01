@@ -17,7 +17,7 @@ import termios
 import threading
 import time
 import tty
-from typing import Optional
+from typing import Optional, Callable
 
 import numpy as np
 
@@ -40,22 +40,23 @@ class AudioSense:
 
     def __init__(
         self,
-        transcriber: Transcriber = None,
-        keyboard: bool = True,
-        voice_actor=None,
+        transcriber: Transcriber,
+        on_interrupt: Optional[Callable[[], None]] = None,
+        is_speaking: Optional[Callable[[], bool]] = None,
     ) -> None:
         """
         Args:
             transcriber: Transcriber instance (model backend already loaded).
             keyboard:    When True, starts a keyboard PTT input thread on start().
                          Set False when only WebSocket audio is expected.
-            voice_actor: Optional VoiceActor for interrupt-on-speak.
+            on_interrupt: Optional sync callback to stop current speech.
+            is_speaking:  Optional callable returning True if EVA is speaking.
         """
         self.transcriber = transcriber or Transcriber()
-        self._keyboard = keyboard
-        self._voice_actor = voice_actor
+        self._on_interrupt = on_interrupt
+        self._is_speaking = is_speaking
         self._mic = Microphone()
-        
+        self._keyboard = True
         # Audio queues
         self._audio_queue: queue.Queue[np.ndarray] = queue.Queue()
         self._stop_event = threading.Event()
@@ -131,18 +132,19 @@ class AudioSense:
             while not self._stop_event.is_set():
                 if self._await_space_press():
                     # Interrupt EVA if she's speaking
-                    if self._voice_actor and self._voice_actor.is_speaking:
-                        self._voice_actor.speaker.stop_speaking()
-                        print("   [DBG] interrupted speech\r", flush=True)
-                        
+                    if self._is_speaking and self._is_speaking():
+                        if self._on_interrupt:
+                            self._on_interrupt()
+                        logger.debug("AudioSense: interrupted speech")
+
                         # Wait for speech to actually stop and release device
                         for _ in range(20):
-                            if not self._voice_actor.is_speaking:
+                            if not self._is_speaking():
                                 break
                             time.sleep(0.1)
 
                     if not self._mic.start_recording():
-                        print("   [DBG] mic failed to start!\r", flush=True)
+                        logger.error("AudioSense: mic recording failed to start")
                         continue
 
                     print("   ...Recording... RELEASE to send ...\r", flush=True)
