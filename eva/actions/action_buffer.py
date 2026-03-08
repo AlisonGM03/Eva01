@@ -68,7 +68,6 @@ class ActionBuffer:
         in registration order when an event of that type arrives.
         """
         self._handlers[action_type].append(handler)
-        logger.debug(f"ActionBuffer: registered handler for <{action_type}>")
 
     # ------------------------------------------------------------------
     # Producer side (async — called by LangGraph tools)

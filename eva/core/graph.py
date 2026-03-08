@@ -51,7 +51,7 @@ class Brain:
         
         self.thread_id = self._new_thread_id()
         self._config = self._get_config()
-        self._passive_tools = {t.name for t in self.tools if getattr(t, "passive", False)}
+        self._passive_tools = {t.name for t in self.tools if (t.metadata or {}).get("passive")}
         self._graph = self._build(checkpointer)
 
     def _new_thread_id(self) -> str:

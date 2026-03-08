@@ -34,7 +34,7 @@ def make_watch_tool(action_buffer: ActionBuffer):
         channel = pick.get("channel") or pick.get("uploader", "Unknown")
 
         await action_buffer.put(
-            "watch",
+            "watch_youtube",
             video_id,
             {"title": title, "channel": channel},
         )

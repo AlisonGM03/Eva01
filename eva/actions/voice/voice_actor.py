@@ -36,11 +36,16 @@ class VoiceActor(BaseAction):
         buffer.on("interrupt", self._handle_interrupt)
         
     async def _handle_speak(self, event: ActionEvent) -> None:
-        """Handle speak: cancel current speech and start new one."""
+        """Handle speak: wait for current speech to finish, then speak next."""
         if not event.content:
             return
 
-        await self._cancel_speech()
+        # Queue: wait for previous speech to finish instead of cancelling
+        if self.current_speech_task and not self.current_speech_task.done():
+            try:
+                await self.current_speech_task
+            except (asyncio.CancelledError, Exception):
+                pass
 
         language = (event.metadata or {}).get("language", "en")
         self.is_speaking = True

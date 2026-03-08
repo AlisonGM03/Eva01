@@ -10,4 +10,4 @@ async def stay_quiet(reason: str) -> str:
     logger.debug(f"Eva stays quiet: {reason}")
     return "ok"
 
-stay_quiet.passive = True
+stay_quiet.metadata["passive"] = True

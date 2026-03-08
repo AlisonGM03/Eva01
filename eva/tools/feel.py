@@ -11,4 +11,4 @@ async def feel(feeling: str, inner_monologue: str) -> str:
     logger.debug(f"Eva's inner monologue: {inner_monologue}")
     return "ok"
 
-feel.passive = True
+feel.metadata["passive"] = True

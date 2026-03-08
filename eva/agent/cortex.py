@@ -16,6 +16,7 @@ from langchain_core.messages import (
     HumanMessage,
 )
 
+
 from config import logger
 from eva.agent.constructor import PromptConstructor
 from eva.core.people import PeopleDB
@@ -29,7 +30,7 @@ class Cortex:
     def __init__(
         self,
         model_name: str,
-        tools: List[BaseTool],
+        tools: list[BaseTool],
         people_db: PeopleDB,
     ) -> None:
 
@@ -58,7 +59,7 @@ class Cortex:
         )
 
         complete_prompt = [SystemMessage(content=system)] + messages \
-                           + [HumanMessage(content="\n\n[Now live your life...]")]
+                           + [HumanMessage(content="\n\n[Now live...]")]
 
         try:
             response = await self._llm.ainvoke(complete_prompt)
