@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from config import logger, eva_configuration, DATA_DIR, Config
-from eva.agent.cortex import Cortex
 from eva.core.graph import Brain
 from eva.core.memory import MemoryDB
 from eva.senses import SenseBuffer, AudioSense, CameraSense
@@ -75,9 +74,14 @@ async def weave(
     )
     audio_sense.start(sense_buffer)
 
-    # Brain — Cortex owns LLM + tools, Brain owns workflow + memory
-    agent = Cortex(config.CHAT_MODEL, action_buffer, people_db=people_db)
-    brain = Brain(agent, memory=memory_db, checkpointer=checkpointer)
+    # Brain — owns tools + workflow, Cortex owns LLM + prompt
+    brain = Brain(
+        model_name=config.CHAT_MODEL,
+        action_buffer=action_buffer,
+        people_db=people_db,
+        memory=memory_db,
+        checkpointer=checkpointer,
+    )
 
     return sense_buffer, action_buffer, motor_system, audio_sense, camera_sense, brain
 
@@ -110,10 +114,6 @@ async def wake() -> None:
             checkpointer=checkpointer
         )
 
-        # Fun startup action to confirm we're alive
-        # TODO: dynamic greeting based on previous interactions, time of day, etc.
-        await action_buffer.put("speak", datetime.now().strftime("%A, %B %d, %Y"))
-
         try:
             await asyncio.gather(
                 breathe(sense_buffer, brain),
@@ -129,11 +129,9 @@ async def wake() -> None:
             if camera_sense:
                 await camera_sense.stop()
                 
-            await asyncio.gather(
-                motor_system.shutdown(), 
-                action_buffer.stop(),
-                eva_db.close_all()
-            )
+            await motor_system.shutdown()
+            await action_buffer.stop()
+            await eva_db.close_all()
 
 if __name__ == "__main__":
     asyncio.run(wake())

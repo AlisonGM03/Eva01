@@ -1,16 +1,17 @@
 """EVA's eyes for the internet — searches and queues YouTube videos."""
 
 import asyncio
+from typing import Dict, List, Any
 import yt_dlp
 from langchain_core.tools import tool
 from eva.actions.action_buffer import ActionBuffer
 
 
-_YDL_OPTS = {"quiet": True, "extract_flat": True, "no_warnings": True}
+_YDL_OPTS: Any = {"quiet": True, "extract_flat": True, "no_warnings": True}
 
-
-def _search(query: str) -> list[dict]:
+def _search(query: str) -> List[Dict[str, Any]]:
     """Blocking yt-dlp search — runs in a thread."""
+    
     with yt_dlp.YoutubeDL(_YDL_OPTS) as ydl:
         results = ydl.extract_info(f"ytsearch3:{query}", download=False)
     return results.get("entries", [])
@@ -19,7 +20,7 @@ def _search(query: str) -> list[dict]:
 def make_watch_tool(action_buffer: ActionBuffer):
     """Create a watch tool bound to the given ActionBuffer."""
 
-    @tool
+    @tool(name_or_callable="watch_youtube")
     async def watch(query: str) -> str:
         """Search YouTube and watch a video. Use short keyword queries (2-4 words)."""
         videos = await asyncio.to_thread(_search, query)

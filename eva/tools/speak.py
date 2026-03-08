@@ -9,7 +9,7 @@ def make_speak_tool(action_buffer: ActionBuffer):
 
     @tool
     async def speak(text: str) -> str:
-        """Say something out loud. This is how I talk to people."""
+        """Say something out loud. I use this to speak."""
         await action_buffer.put("speak", text)
         return "ok"
 

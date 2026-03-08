@@ -96,6 +96,10 @@ class ActionBuffer:
     async def start_loop(self) -> None:
         """Dispatch events to registered handlers. Runs forever."""
         self._running = True
+        
+        # Fun startup action to confirm we're alive
+        # TODO: dynamic greeting based on previous interactions, time of day, etc.
+        await self.put("speak", datetime.now().strftime("%A, %B %d, %Y"))
         logger.debug("ActionBuffer: dispatch loop started.")
 
         while self._running:

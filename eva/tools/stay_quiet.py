@@ -7,5 +7,7 @@ from config import logger
 @tool
 async def stay_quiet(reason: str) -> str:
     """Choose not to speak. I use this when I want to be silent."""
-    logger.debug(f"EVA stays quiet: {reason}")
+    logger.debug(f"Eva stays quiet: {reason}")
     return "ok"
+
+stay_quiet.passive = True

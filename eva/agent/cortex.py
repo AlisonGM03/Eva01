@@ -1,77 +1,65 @@
 """
 Cortex: EVA's language faculty.
 
-Owns the LLM, tools, and prompt construction.
+Owns the LLM and prompt construction.
 Brain calls cortex.respond(messages) — everything else is internal.
 """
 
 from datetime import datetime
 from typing import List, Set
 from langchain.chat_models import init_chat_model
+from langchain_core.tools import BaseTool
 from langchain_core.messages import (
-    SystemMessage, 
+    SystemMessage,
     AIMessage,
-    BaseMessage, 
-    HumanMessage, 
-    trim_messages
+    BaseMessage,
+    HumanMessage,
 )
 
 from config import logger
-from eva.actions.action_buffer import ActionBuffer
 from eva.agent.constructor import PromptConstructor
 from eva.core.people import PeopleDB
-from eva.tools import load_tools
 
 
 class Cortex:
-    """EVA's language cortex — wraps LLM + tools + prompt into a single respond() call."""
+    """EVA's language cortex — wraps LLM + prompt into a single respond() call."""
 
     _TEMPERATURE = 0.8  # creative but not too random
 
     def __init__(
         self,
         model_name: str,
-        action_buffer: ActionBuffer,
+        tools: List[BaseTool],
         people_db: PeopleDB,
     ) -> None:
 
         self.model_name = model_name
         self.constructor = PromptConstructor(people_db=people_db)
-        self.tools = load_tools(action_buffer)
         self._llm = init_chat_model(
             model=model_name,
             temperature=self._TEMPERATURE
-        ).bind_tools(self.tools)
+        ).bind_tools(tools)
 
-        logger.debug(f"Cortex: {model_name} ready with {len(self.tools)} tools.")
+        logger.debug(f"Cortex: {model_name} ready with {len(tools)} tools.")
 
     async def respond(
-        self, 
-        messages: List[BaseMessage], 
-        present_people: Set[str], 
+        self,
+        messages: List[BaseMessage],
+        present_people: Set[str],
         journal: str = ""
     ) -> AIMessage:
         """Construct prompt, trim messages, invoke LLM, return response."""
 
         timestamp = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
-
         system = self.constructor.build_system(
             timestamp=timestamp,
             memory=journal,
             present_people=present_people
         )
 
-        # Optional: Cap the input tokens
-        trimmed = trim_messages(messages, max_tokens=8000, token_counter='approximate')
+        complete_prompt = [SystemMessage(content=system)] + messages \
+                           + [HumanMessage(content="\n\n[Now live your life...]")]
 
-        prompt_messages = trimmed or messages
-        
-        if not any(isinstance(m, HumanMessage) for m in prompt_messages):
-            prompt_messages = [HumanMessage(content="[Now live your life.]")] + prompt_messages
-
-        complete_prompt = [SystemMessage(content=system)] + prompt_messages
-        # logger.debug(f"Complete prompt for LLM:\n{complete_prompt}\n\n")
-        
         try:
             response = await self._llm.ainvoke(complete_prompt)
         except Exception as e:

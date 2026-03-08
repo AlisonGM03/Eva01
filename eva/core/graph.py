@@ -21,9 +21,12 @@ from langchain_core.messages import (
 )
 
 from config import logger
+from eva.actions.action_buffer import ActionBuffer
 from eva.agent.cortex import Cortex
 from eva.core.memory import MemoryDB
+from eva.core.people import PeopleDB
 from eva.senses.sense_buffer import SenseEntry
+from eva.tools import load_tools
 
 
 class EvaState(TypedDict):
@@ -34,11 +37,21 @@ class EvaState(TypedDict):
 class Brain:
     """EVA's brain graph — orchestrates agent, memory, and workflow."""
 
-    def __init__(self, cortex: Cortex, memory: MemoryDB, checkpointer=None):
-        self.cortex = cortex
+    def __init__(
+        self,
+        model_name: str,
+        action_buffer: ActionBuffer,
+        people_db: PeopleDB,
+        memory: MemoryDB,
+        checkpointer=None,
+    ):
+        self.tools = load_tools(action_buffer)
+        self.cortex = Cortex(model_name=model_name, tools=self.tools, people_db=people_db)
         self.memory = memory
+        
         self.thread_id = self._new_thread_id()
         self._config = self._get_config()
+        self._passive_tools = {t.name for t in self.tools if getattr(t, "passive", False)}
         self._graph = self._build(checkpointer)
 
     def _new_thread_id(self) -> str:
@@ -51,6 +64,7 @@ class Brain:
     
     async def _think(self, state: EvaState):
         """ The "think" node — EVA processes messages and decides on tool calls."""
+        
         distilled, journal = await self.memory.prepare_context(state["messages"])
         response = await self.cortex.respond(
             distilled,
@@ -60,19 +74,21 @@ class Brain:
         return {"messages": [response]}
 
     def _route(self, state: EvaState):
-        """ Decide whether to route to tools."""
+        """Decide whether to route to tools or end."""
         last = state["messages"][-1]
-        if isinstance(last, AIMessage) and last.tool_calls: 
+        if isinstance(last, AIMessage) and last.tool_calls:
+            called = {tc["name"] for tc in last.tool_calls}
+            if called <= self._passive_tools:
+                return END
             return "tools"
         return END
 
     def _build(self, checkpointer):
         """ Build the StateGraph for EVA's brain."""
         builder = StateGraph(EvaState)
-        
-        # Now passing bound methods instead of closures
+
         builder.add_node("think", self._think)
-        builder.add_node("tools", ToolNode(self.cortex.tools))
+        builder.add_node("tools", ToolNode(self.tools))
 
         builder.set_entry_point("think")
         builder.add_conditional_edges("think", self._route)
@@ -94,9 +110,9 @@ class Brain:
             self.memory.add_people_to_session(set(face_ids))
 
         if entry.type == "audio":
-            message = HumanMessage(content=entry.content)
+            message = HumanMessage(content=f"{entry.content}")
         else:
-            message = SystemMessage(content=entry.content)
+            message = SystemMessage(content=f"{entry.content}")
 
         await self._graph.ainvoke(
             {
