@@ -42,23 +42,28 @@ class MemoryDB:
     # ── Distillation ─────────────────────────────────────────
 
     @staticmethod
-    def distill(messages: list) -> list:
+    def distill(messages: list, full: bool = False) -> list:
         """Collapse completed feel/speak tool cycles into clean AIMessages.
         to de-noise and preserve the essence of feelings and speech for memory/journal.
         SAVE TOKENS too!
 
-        Only distills PREVIOUS turns (before the last HumanMessage).
+        By default, only distills PREVIOUS turns (before the last HumanMessage).
         The current turn stays raw so the ReAct loop can continue.
+        When full=True, distills ALL messages (used by flush at shutdown).
         """
-        # Find the last HumanMessage — everything after it is the current turn
-        last_human_idx = -1
-        for idx in range(len(messages) - 1, -1, -1):
-            if isinstance(messages[idx], HumanMessage):
-                last_human_idx = idx
-                break
+        if full:
+            history = messages
+            current_turn = []
+        else:
+            # Find the last HumanMessage — everything after it is the current turn
+            last_human_idx = -1
+            for idx in range(len(messages) - 1, -1, -1):
+                if isinstance(messages[idx], HumanMessage):
+                    last_human_idx = idx
+                    break
 
-        history = messages[:last_human_idx] if last_human_idx > 0 else []
-        current_turn = messages[last_human_idx:] if last_human_idx >= 0 else messages[:]
+            history = messages[:last_human_idx] if last_human_idx > 0 else []
+            current_turn = messages[last_human_idx:] if last_human_idx >= 0 else messages[:]
 
         result = []
         i = 0
@@ -75,39 +80,29 @@ class MemoryDB:
                 continue
 
             tool_calls = msg.tool_calls
-            tool_names = {tc['name'] for tc in tool_calls}
-            distillable = tool_names <= {'feel', 'speak'}
-
-            if not distillable:
-                result.append(msg)
-                i += 1
-                continue
-
             call_ids = {tc['id'] for tc in tool_calls}
-            tool_msg_count = 0
+
+            # Collect matching ToolMessages
+            tool_msgs = {}
             j = i + 1
             while j < len(history) and isinstance(history[j], ToolMessage):
                 if history[j].tool_call_id in call_ids:
-                    tool_msg_count += 1
+                    tool_msgs[history[j].tool_call_id] = history[j].content
                 j += 1
 
-            if tool_msg_count < len(call_ids):
+            # Only distill if all tool results are present
+            if len(tool_msgs) < len(call_ids):
                 result.append(msg)
                 i += 1
                 continue
 
-            parts = []
-            for tc in tool_calls:
-                name = tc['name']
-                args = tc['args']
-                if name == 'feel':
-                    feeling = args.get('feeling', '')
-                    parts.append(f"[I felt {feeling}]")
-                elif name == 'speak':
-                    text = args.get('text', '')
-                    parts.append(f'I said: "{text}"')
-
-            result.append(AIMessage(content="\n\n".join(parts)))
+            # Use tool return values as the distilled content
+            parts = [
+                tool_msgs[tc['id']] for tc in tool_calls
+                if tool_msgs.get(tc['id'])
+            ]
+            if parts:
+                result.append(AIMessage(content="\n\n".join(parts)))
 
             i = j
             if i < len(history) and isinstance(history[i], AIMessage) \
@@ -115,7 +110,16 @@ class MemoryDB:
                 and not getattr(history[i], 'tool_calls', None):
                 i += 1
 
-        result.extend(current_turn)
+        # Strip metadata bloat (API signatures, usage stats) from current turn
+        for msg in current_turn:
+            if isinstance(msg, AIMessage):
+                result.append(AIMessage(
+                    content=msg.content,
+                    tool_calls=msg.tool_calls,
+                    id=msg.id,
+                ))
+            else:
+                result.append(msg)
         return result
 
     # ── Context Assembly ─────────────────────────────────────
@@ -156,23 +160,20 @@ class MemoryDB:
             logger.debug("MemoryDB: nothing to flush.")
             return
 
-        # Distill entire session (treat all messages as history)
-        distilled = self.distill(messages)
+        # Distill entire session — full=True treats all messages as history
+        distilled = self.distill(messages, full=True)
 
         # Build conversation text from distilled messages
         parts = []
         for msg in distilled:
-            if isinstance(msg, HumanMessage):
-                parts.append(f"I hear: {self._text_content(msg.content)}")
-            elif isinstance(msg, AIMessage) and msg.content:
-                parts.append(self._text_content(msg.content))
+            parts.append(self._text_content(msg.content))
 
         if not parts:
             logger.debug("MemoryDB: distilled to nothing, skipping flush.")
             return
 
         conversation = "\n".join(parts)
-        logger.debug(f"MemoryDB: writing journal entry for conversation:\n{conversation}")
+        logger.debug(f"MemoryDB: writing journal entry:\n{conversation}")
         
         # Skip journaling for trivially short sessions (e.g. a single observation)
         if len(conversation.split()) < 30:

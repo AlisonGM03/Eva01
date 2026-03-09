@@ -38,7 +38,7 @@ models:
 
   # The visual cortex: how EVA interprets images from her webcam or the user.
   # Uses LangChain format "provider:model" — e.g. "openai:gpt-4o-mini", "groq:llama-4-scout-17b-16e-instruct"
-  vision: "google_genai:gemini-3-flash-preview"
+  vision: "google_genai:gemini-2.5-flash"
 
   # The auditory cortex: transcribing human speech into text.
   # Common providers: "whisper", "groq", "faster-whisper"

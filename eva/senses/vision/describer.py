@@ -40,7 +40,13 @@ class Describer:
         
         try:
             response = await self.model.ainvoke([message])
-            return str(response.content) 
+            content = response.content
+            if isinstance(content, list):
+                return " ".join(
+                    block["text"] for block in content
+                    if isinstance(block, dict) and "text" in block
+                ).strip() or None
+            return str(content)
         
         except Exception as e:
             logger.error(f"Describer: model invocation failed — {e}")
@@ -49,7 +55,7 @@ class Describer:
     async def describe(self, image_data: np.ndarray | str, names: list[str] | None = None) -> str | None:
         try:
             image_base64 = self._convert_base64(image_data)
-            names_line = f"\nPeople identified: {', '.join(names)}. Refer to them by name." if names else ""
+            names_line = f"\nPeople identified in the scene: {', '.join(names)}. Refer to them by name." if names else ""
             prompt = load_prompt("vision").format(names_line=names_line)
 
             return await self._generate(image_base64, prompt)

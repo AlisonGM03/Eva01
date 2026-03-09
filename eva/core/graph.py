@@ -8,7 +8,7 @@ Pure workflow topology. The Cortex owns the LLM and prompt logic.
 """
 
 from datetime import datetime
-from typing import List, Annotated, TypedDict, Set, Dict, Any
+from typing import List, Annotated, TypedDict, Set 
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, add_messages, END
@@ -31,7 +31,6 @@ from eva.tools import load_tools
 class EvaState(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     present_people: Set[str]
-    observation: str
 
 class Brain:
     """EVA's brain graph — orchestrates agent, memory, and workflow."""
@@ -68,16 +67,13 @@ class Brain:
         """ The "think" node — EVA processes messages and decides on tool calls."""
 
         distilled, journal = await self.memory.prepare_context(state["messages"])
-        observation = state.get("observation", "")
         
         response = await self.cortex.respond(
             distilled,
             present_people=state.get("present_people", set()),
             journal=journal,
-            observation=observation
         )
 
-        # Clear observation after first think so it doesn't re-inject on loops
         return {"messages": [response]}
 
     def _route(self, state: EvaState):
@@ -127,18 +123,12 @@ class Brain:
         if face_ids:
             self.memory.add_people_to_session(set(face_ids))
 
-        if entry.type == "audio":
-            messages: List[BaseMessage] = [HumanMessage(content=f"{entry.content}")]
-            observation = ""
-        else:
-            messages: List[BaseMessage] = []
-            observation = entry.content
+        message = HumanMessage(content=f"{entry.content}")
             
         await self._graph.ainvoke(
             EvaState(
-                messages=messages,
+                messages=[message],
                 present_people=set(face_ids),
-                observation=observation
             ),
             config=self._config,
         )

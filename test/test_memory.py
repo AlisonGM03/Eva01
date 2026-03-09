@@ -104,8 +104,8 @@ def test_distill_collapses_feel_speak():
             {"id": "tc1", "name": "feel", "args": {"feeling": "curious", "inner_monologue": "someone said hi"}},
             {"id": "tc2", "name": "speak", "args": {"text": "Hi there!"}},
         ]),
-        ToolMessage(content="ok", tool_call_id="tc1"),
-        ToolMessage(content="ok", tool_call_id="tc2"),
+        ToolMessage(content="[I felt curious]", tool_call_id="tc1"),
+        ToolMessage(content='I said: "Hi there!"', tool_call_id="tc2"),
         HumanMessage(content="I hear: how are you?"),
         AIMessage(content="", tool_calls=[
             {"id": "tc3", "name": "feel", "args": {"feeling": "happy", "inner_monologue": "they care"}},
@@ -137,19 +137,30 @@ def test_distill_preserves_non_tool_ai():
     assert distilled[1].content == "Nothing interesting here."
 
 
+def _make_conversation():
+    """A multi-turn conversation with enough words to pass the 30-word journal threshold."""
+    return [
+        HumanMessage(content="Good morning, how are you doing today? I was thinking about going for a walk."),
+        AIMessage(content="", tool_calls=[
+            {"id": "tc1", "name": "feel", "args": {"feeling": "warm", "inner_monologue": "nice greeting"}},
+            {"id": "tc2", "name": "speak", "args": {"text": "Good morning! A walk sounds lovely. The weather has been nice lately, hasn't it?"}},
+        ]),
+        ToolMessage(content="[I felt warm]", tool_call_id="tc1"),
+        ToolMessage(content='I said: "Good morning! A walk sounds lovely. The weather has been nice lately, hasn\'t it?"', tool_call_id="tc2"),
+        HumanMessage(content="Yeah it has been really nice. I might go to the park near the river."),
+        AIMessage(content="", tool_calls=[
+            {"id": "tc3", "name": "speak", "args": {"text": "That sounds peaceful. I hope you enjoy it."}},
+        ]),
+        ToolMessage(content='I said: "That sounds peaceful. I hope you enjoy it."', tool_call_id="tc3"),
+    ]
+
+
 def test_flush_no_llm():
+    """Without an LLM, flush uses raw conversation as journal."""
     async def _run():
         with tempfile.TemporaryDirectory() as tmp:
             db, handler = await make_memory(Path(tmp))
-            messages = [
-                HumanMessage(content="I hear: good morning"),
-                AIMessage(content="", tool_calls=[
-                    {"id": "tc1", "name": "speak", "args": {"text": "Good morning!"}},
-                ]),
-                ToolMessage(content="ok", tool_call_id="tc1"),
-            ]
-            result = await db.flush(messages, session_id="test-session")
-            assert result is True
+            await db.flush(_make_conversation(), session_id="test-session")
             recent = await db._journal.get_recent()
             assert len(recent) == 1 and "morning" in recent[0].lower()
             await handler.close_all()
@@ -167,15 +178,7 @@ def test_flush_with_llm():
             mock_llm.ainvoke.return_value = mock_response
             db._pen = mock_llm
 
-            messages = [
-                HumanMessage(content="I hear: good morning"),
-                AIMessage(content="", tool_calls=[
-                    {"id": "tc1", "name": "speak", "args": {"text": "Good morning!"}},
-                ]),
-                ToolMessage(content="ok", tool_call_id="tc1"),
-            ]
-            result = await db.flush(messages, session_id="test-session")
-            assert result is True
+            await db.flush(_make_conversation(), session_id="test-session")
             assert mock_llm.ainvoke.called
             recent = await db._journal.get_recent()
             assert len(recent) == 1 and "greeted" in recent[0]
@@ -187,8 +190,9 @@ def test_flush_empty():
     async def _run():
         with tempfile.TemporaryDirectory() as tmp:
             db, handler = await make_memory(Path(tmp))
-            result = await db.flush([], session_id="empty")
-            assert result is False
+            await db.flush([], session_id="empty")
+            recent = await db._journal.get_recent()
+            assert len(recent) == 0
             await handler.close_all()
     asyncio.run(_run())
 

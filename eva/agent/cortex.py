@@ -50,7 +50,6 @@ class Cortex:
         messages: List[BaseMessage],
         present_people: Set[str],
         journal: str = "",
-        observation: str = "",
     ) -> AIMessage:
         """Construct prompt, trim messages, invoke LLM, return response."""
         
@@ -61,16 +60,13 @@ class Cortex:
             timestamp=timestamp,
             memory=journal,
             present_people=present_people,
-            observation=observation
         )
 
         # Only add the kickoff prompt on the initial pass, not on ReAct continuations
         # (where the last message is a ToolMessage from a prior tool call)
         complete_prompt = [SystemMessage(content=system)] + messages
-        if not messages or not isinstance(messages[-1], ToolMessage):
-            complete_prompt.append(HumanMessage(content="\n\nLive your life..."))
-                           
-        logger.debug(f"Cortex received messages:\n{complete_prompt}\n")
+                         
+        # logger.debug(f"Cortex received messages:\n{complete_prompt}\n")
 
         try:
             response = await self._llm.ainvoke(complete_prompt)

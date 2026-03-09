@@ -128,7 +128,7 @@ class CameraSense:
 
         return change_ratio > self._CHANGE_THRESHOLD
 
-    async def _observe(self, frame: np.ndarray) -> tuple[str | None, List[str]]:
+    async def _observe(self, frame: np.ndarray) -> tuple[str, List[str]]:
         """Identify faces first, then describe scene with names for coherent output.
 
         Returns (observation_text, face_ids) — face_ids are PeopleDB IDs for recognized faces.
@@ -152,7 +152,7 @@ class CameraSense:
             logger.error(f"CameraSense: Description error — {e}")
             description = None
 
-        observation = f"I see {description}" if description else None
+        observation = f"<OBSERVATION>{description}</OBSERVATION>" if description else ""
         return observation, face_ids
 
     async def _describe(self, frame: np.ndarray, names: list[str] | None = None) -> str | None:
