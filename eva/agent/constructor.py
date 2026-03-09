@@ -30,8 +30,9 @@ class PromptConstructor:
         self, 
         timestamp: str, 
         memory: str = "", 
-        present_people: Set[str] = set()
-        ) -> str:
+        present_people: Set[str] = set(),
+        observation: str = "" #only observation 
+    ) -> str:
         """Build the system prompt string."""
         
         prompt = (
@@ -54,6 +55,9 @@ class PromptConstructor:
 
         prompt += f"\n\n<CURRENT_TIME>{timestamp}</CURRENT_TIME>\n\n"
         
+        if observation:
+            prompt += f"\n\n<OBSERVATION>{observation}</OBSERVATION>"
+            
         # logger.debug(f"Constructed system prompt:\n{prompt}")
         return prompt
 

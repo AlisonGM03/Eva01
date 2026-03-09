@@ -175,7 +175,7 @@ class AudioSense:
                 result = self.transcriber.transcribe(audio)
                 if result:
                     text, _ = result
-                    buffer.push("audio", f"I hear: {text}")
+                    buffer.push("audio", f"{text}")
                 else:
                     logger.debug("AudioSense: no speech detected")
             except Exception as e:

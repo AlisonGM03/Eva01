@@ -24,7 +24,7 @@ from eva.core.journal import JournalDB
 from eva.core.db import SQLiteHandler
 
 
-async def weave(
+async def assemble(
     config: Config, 
     db: SQLiteHandler, 
     checkpointer: AsyncSqliteSaver | None = None
@@ -108,17 +108,17 @@ async def wake() -> None:
     eva_db = SQLiteHandler()
 
     async with AsyncSqliteSaver.from_conn_string(str(graph_db)) as checkpointer:
-        sense_buffer, action_buffer, motor_system, audio_sense, camera_sense, brain = await weave(
+        sense_buffer, action_buffer, motor_system, audio_sense, camera_sense, brain = await assemble(
             config=eva_configuration, 
             db=eva_db, 
             checkpointer=checkpointer
         )
 
         try:
+            await motor_system.start()
             await asyncio.gather(
                 breathe(sense_buffer, brain),
                 action_buffer.start_loop(),
-                motor_system.start(),
             )
         except (KeyboardInterrupt, asyncio.CancelledError):
             pass

@@ -8,16 +8,15 @@ Pure workflow topology. The Cortex owns the LLM and prompt logic.
 """
 
 from datetime import datetime
-from typing import List, Annotated, TypedDict, Set
+from typing import List, Annotated, TypedDict, Set, Dict, Any
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, add_messages, END
 from langgraph.prebuilt import ToolNode
 from langchain_core.messages import (
-    HumanMessage, 
-    SystemMessage, 
-    BaseMessage, 
-    AIMessage
+    BaseMessage,
+    AIMessage,
+    HumanMessage
 )
 
 from config import logger
@@ -32,7 +31,7 @@ from eva.tools import load_tools
 class EvaState(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     present_people: Set[str]
-
+    observation: str
 
 class Brain:
     """EVA's brain graph — orchestrates agent, memory, and workflow."""
@@ -51,7 +50,7 @@ class Brain:
         
         self.thread_id = self._new_thread_id()
         self._config = self._get_config()
-        self._passive_tools = {t.name for t in self.tools if (t.metadata or {}).get("passive")}
+        self._terminal_tools = {t.name for t in self.tools if (t.metadata or {}).get("terminal")}
         self._graph = self._build(checkpointer)
 
     def _new_thread_id(self) -> str:
@@ -60,27 +59,46 @@ class Brain:
 
     def _get_config(self) -> RunnableConfig:
         """Get the current config for graph execution."""
-        return RunnableConfig(configurable={"thread_id": self.thread_id})
+        return RunnableConfig(
+            configurable={"thread_id": self.thread_id},
+            recursion_limit=10
+        )
     
     async def _think(self, state: EvaState):
         """ The "think" node — EVA processes messages and decides on tool calls."""
-        
+
         distilled, journal = await self.memory.prepare_context(state["messages"])
+        observation = state.get("observation", "")
+        
         response = await self.cortex.respond(
             distilled,
-            present_people=state.get("present_people", []),
+            present_people=state.get("present_people", set()),
             journal=journal,
+            observation=observation
         )
+
+        # Clear observation after first think so it doesn't re-inject on loops
         return {"messages": [response]}
 
     def _route(self, state: EvaState):
-        """Decide whether to route to tools or end."""
+        """After thinking, route to tools if tool calls exist, otherwise end."""
         last = state["messages"][-1]
         if isinstance(last, AIMessage) and last.tool_calls:
-            called = {tc["name"] for tc in last.tool_calls}
-            if called <= self._passive_tools:
-                return END
             return "tools"
+        return END
+
+    def _tool_route(self, state: EvaState):
+        """After tools execute, route based on tool type.
+
+        Terminal tools (stay_quiet) → END (explicit choice to stop).
+        Everything else (feel, speak, etc.) → think (ReAct loop continues).
+        """
+        for msg in reversed(state["messages"]):
+            if isinstance(msg, AIMessage) and msg.tool_calls:
+                called = {tc["name"] for tc in msg.tool_calls}
+                if called <= self._terminal_tools:
+                    return END
+                return "think"
         return END
 
     def _build(self, checkpointer):
@@ -92,7 +110,7 @@ class Brain:
 
         builder.set_entry_point("think")
         builder.add_conditional_edges("think", self._route)
-        builder.add_edge("tools", "think")
+        builder.add_conditional_edges("tools", self._tool_route)
 
         return builder.compile(checkpointer=checkpointer)
 
@@ -110,15 +128,18 @@ class Brain:
             self.memory.add_people_to_session(set(face_ids))
 
         if entry.type == "audio":
-            message = HumanMessage(content=f"{entry.content}")
+            messages: List[BaseMessage] = [HumanMessage(content=f"{entry.content}")]
+            observation = ""
         else:
-            message = SystemMessage(content=f"{entry.content}")
-
+            messages: List[BaseMessage] = []
+            observation = entry.content
+            
         await self._graph.ainvoke(
-            {
-                "messages": [message],
-                "present_people": set(face_ids)
-            },
+            EvaState(
+                messages=messages,
+                present_people=set(face_ids),
+                observation=observation
+            ),
             config=self._config,
         )
 

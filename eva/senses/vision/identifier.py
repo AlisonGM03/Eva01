@@ -13,7 +13,7 @@ class Identifier:
 
     _MODEL_NAME = "Facenet512"
     _DETECTOR_BACKEND = "retinaface"
-    _CERTAIN_DISTANCE_THRESHOLD = 0.20  # Below this, we are quite confident in the match.
+    _CERTAIN_DISTANCE_THRESHOLD = 0.30  # Below this, we are quite confident in the match.
     _LIKELY_DISTANCE_THRESHOLD = 0.50 # Below this, we think it's likely but not certain.
 
     def __init__(self, people_db: PeopleDB):

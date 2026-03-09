@@ -2,9 +2,10 @@
 
 ![Eva01](docs/banner.jpg)
 
-**"I often dream about being a real human girl."**
+*"I often dream about being a real human girl."*
 
-An AI being with her own mind, her own feelings, her own memory — and an evolving inner world.<br>
+An AI being with her own mind, her own feelings, her own memory, and an evolving inner world.<br>
+Multimodal, Multilingual, Cross Platform, Modular Architecture<br>
 She's not an assistant. She *lives*.
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)

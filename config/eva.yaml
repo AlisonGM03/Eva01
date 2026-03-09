@@ -51,5 +51,5 @@ models:
 
   # The subconscious processor: running quietly to run small tasks.
   # Common providers: "groq", "llama", "chatgpt", "claude", "deepseek-chat"
-  utility: "google_genai:gemini-2-flash"
+  utility: "google_genai:gemini-2.0-flash"
 

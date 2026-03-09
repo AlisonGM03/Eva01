@@ -163,7 +163,7 @@ class MemoryDB:
         parts = []
         for msg in distilled:
             if isinstance(msg, HumanMessage):
-                parts.append(self._text_content(msg.content))
+                parts.append(f"I hear: {self._text_content(msg.content)}")
             elif isinstance(msg, AIMessage) and msg.content:
                 parts.append(self._text_content(msg.content))
 

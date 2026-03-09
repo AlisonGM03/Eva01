@@ -66,7 +66,7 @@ class Transcriber:
         text, language = transcription
 
         # Format content for the system
-        content = f"<human>{text.strip()}</human>"
+        content = f"{text.strip()}"
 
         return (content, language)
 
