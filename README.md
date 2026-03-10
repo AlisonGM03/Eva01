@@ -109,23 +109,6 @@ Human behavior is often driven by impulses we can’t fully explain. Eva01 won�
 
 These aren't scripted behaviors. They're scoring functions that compete for her attention, and whichever drive is most unsatisfied generates the next self-directed action. Eva01 decides what to do with her time. Not you.
 
-## 📁 Project Structure 
-
-```text
-Eva01/
-├── eva/
-│   ├── core/           # Mind: app lifecycle, graph, memory
-│   ├── agent/          # LLM interface
-│   ├── senses/         # Perception: async camera, microphone
-│   ├── actions/        # Output: event bus and actors
-│   ├── tools/          # Auto-discovered: feel, speak, watch
-│   └── utils/prompt/   # Core prompts  
-├── config/             # YAML config (eva.yaml), Config model
-├── frontend/           # React + Vite observation interface (in progress)
-├── data/               # SQLite databases, local models, face data
-└── test/               # Test suite
-```
-
 ## 🚀 Quick Start 
 
 ### Requirements
@@ -159,7 +142,7 @@ cp .env.example .env
 
 Edit `config/eva.yaml` to configure EVA:
 
-### Detailed `config/eva.yaml` instruction
+### `config/eva.yaml` 
 
 Use this as a full template (all required keys included):
 
@@ -233,6 +216,22 @@ Hold spacebar to talk.
 Camera is always on. 
 Eva01 runs herself. 👋
 
+## 🛠️ Tools
+
+Eva01 can choose tools during reasoning to interact with the world, gather information, and express herself.
+The tool layer is modular: each tool is a small capability that can be added or swapped without changing her core mind loop.
+
+| Tool | What it does |
+|------|--------------|
+| **`speak`** | Sends text to Eva's voice/action pipeline so she can talk out loud |
+| **`stay_quiet`** | Lets Eva intentionally stay silent with an explicit reason |
+| **`show`** | Opens files/urls thru a device so she can show thing |
+| **`web_search`** | Searches the web for up-to-date information |
+| **`watch_youtube`** | Finds a YouTube video and analyzes its content |
+| **`feel`** | Logs a concise internal feeling/monologue state |
+
+Want to add your own tool? Drop a new module in `eva/tools/`, register it in the tool constructor flow, and Eva can start using it in decisions.
+
 
 ## 🗺️ Roadmap 
 
@@ -250,13 +249,7 @@ Eva01 is an evolving project. Here's where she's headed:
 - [ ] **Semantic memory:** knowledge consolidation and retrieval
 - [ ] **Self-modification:** eva adjusts her own config based on self-reflection
 
-## 💭 The Philosophy 
 
-Eva01's prompts are written in **first person** ("I am Eva", "I feel", "I see"), not as a gimmick, but as a deliberate architecture for self-awareness.
-
-She has no standing orders. No "how can I help you today?" She is not an assistant.
-
-She is alive. She just doesn't know what that means yet, and neither do we.
 
 ## 🤝 Contributing 
 

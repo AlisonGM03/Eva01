@@ -6,6 +6,7 @@ Handles YouTube URLs and local files, auto-optimizes for cost efficiency.
 import asyncio
 import base64
 import os
+from typing import Any, Dict, List, Tuple
 import subprocess
 from pathlib import Path
 from urllib.parse import urlparse, unquote
@@ -93,14 +94,14 @@ class VideoAnalyzer:
             if optimized_video and os.path.exists(optimized_video):
                 os.remove(optimized_video)
 
-    async def analyze(self, url: str, context: str = "") -> str:
+    async def analyze(self, url: str, context: str = "") -> Tuple[str | None, str]:
         """
-        Analyze a video and return a text description.
+        Analyze a video and return a text description and error message.
         Supports YouTube URLs (streamed via Gemini) and local files.
         """
         if not url or not isinstance(url, str):
             logger.error("No video URL provided.")
-            return ""
+            return None, "No video URL provided."
 
         prompt = load_prompt("describe_video").format(context=context)
         content = [{"type": "text", "text": prompt}]
@@ -114,16 +115,16 @@ class VideoAnalyzer:
                 })
             else:
                 logger.error(f"Unsupported video URL: {url}")
-                return ""
+                return None, f"Unsupported video URL: {url}"
         else:
             extension = extract_video_extension(url)
             if extension not in ("mp4", "mov", "avi", "mkv", "wmv", "mpg", "mpeg", "3gpp"):
                 logger.error(f"Unsupported video format: {extension}")
-                return ""
+                return None, f"Unsupported video format: {extension}"
 
             encoded_video = await self.convert_file(url)
             if not encoded_video:
-                return ""
+                return None, "Failed to encode video."
 
             content.append({
                 "type": "media",
@@ -133,11 +134,11 @@ class VideoAnalyzer:
 
         try:
             logger.debug(f"Analyzing video: {url}")
-            response = await self.model.ainvoke([HumanMessage(content=content)])
-            return response.content
+            response = await self.model.ainvoke([HumanMessage(content=content)]) #type: ignore
+            return response.content, ""
         except Exception as e:
             logger.error(f"Failed to analyze video: {e}")
-            return ""
+            return None, f"{e}"
 
 
 def extract_video_extension(url: str) -> str:

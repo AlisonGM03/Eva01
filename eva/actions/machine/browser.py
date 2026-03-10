@@ -32,7 +32,7 @@ class Browser(BaseAction):
     async def _handle_show(self, event: ActionEvent) -> None:
         """Open a URL in the host browser."""
         url = event.content
-        logger.info(f"Browser: opening {url}")
+        logger.debug(f"Browser: opening {url}")
         try:
             _open_url(url)
         except Exception as e:
