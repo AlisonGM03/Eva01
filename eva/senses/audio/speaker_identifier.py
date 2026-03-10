@@ -23,7 +23,6 @@ class SpeakerIdentifier:
     """Matches speech to known people by voice embedding similarity."""
 
     _MODEL_ID = "pyannote/wespeaker-voxceleb-resnet34-LM"
-    _VOICE_DIR = DATA_DIR / "voices"
     _CERTAIN_THRESHOLD = 0.30   # cosine distance — below = confident match
     _LIKELY_THRESHOLD = 0.50    # below = likely match
     _MIN_AUDIO_SECONDS = 0.5
@@ -31,7 +30,8 @@ class SpeakerIdentifier:
 
     def __init__(self, people_db: PeopleDB):
         self._people_lookup: Dict[str, str] = people_db.get_id_name_map()
-        self._cache_path = self._VOICE_DIR / ".embeddings_cache.pkl"
+        self.voice_dir = DATA_DIR / "voices"
+        self._cache_path = self.voice_dir / ".embeddings_cache.pkl"
         self._inference = None
         self._vad_model = None
         self._initialized = False
@@ -45,11 +45,11 @@ class SpeakerIdentifier:
 
         self._init_model()
         self._init_vad()
-        self._load_reference_embeddings()
+        self._load_embeddings()
         self._initialized = True
 
     def _init_model(self) -> None:
-        self._VOICE_DIR.mkdir(parents=True, exist_ok=True)
+        self.voice_dir.mkdir(parents=True, exist_ok=True)
         try:
             from pyannote.audio import Model, Inference
 
@@ -85,13 +85,13 @@ class SpeakerIdentifier:
         end = min(len(audio), stamps[-1]["end"] + pad)
         return audio[start:end]
 
-    def _load_reference_embeddings(self) -> None:
+    def _load_embeddings(self) -> None:
         if self._inference is None:
             return
 
         # Scan voice samples: data/voices/{person_id}/*.wav
         voice_files: Dict[str, list[Path]] = {}
-        for person_dir in self._VOICE_DIR.iterdir():
+        for person_dir in self.voice_dir.iterdir():
             if not person_dir.is_dir() or person_dir.name.startswith("."):
                 continue
             wavs = sorted(person_dir.glob("*.wav"))

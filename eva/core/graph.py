@@ -102,7 +102,10 @@ class Brain:
         builder = StateGraph(EvaState)
 
         builder.add_node("think", self._think)
-        builder.add_node("tools", ToolNode(self.tools))
+        builder.add_node("tools", ToolNode(
+            self.tools,
+            handle_tool_errors=lambda e: f"I couldn't do that — {e}",
+        ))
 
         builder.set_entry_point("think")
         builder.add_conditional_edges("think", self._route)

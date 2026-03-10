@@ -159,19 +159,62 @@ cp .env.example .env
 
 Edit `config/eva.yaml` to configure EVA:
 
+### Detailed `config/eva.yaml` instruction
+
+Use this as a full template (all required keys included):
+
+```yaml
+system:
+  # Where EVA runs: "local" for direct mic/camera/speaker, "server" for headless/API style.
+  device: "local"
+
+  # Primary language for reasoning + speech style.
+  # Supported: en, zh, fr, de, it, ja, ko, ru, es, pt, nl, multilingual
+  language: "en"
+
+  # Base URL for local model servers (used by providers like Ollama).
+  base_url: "http://localhost:11434"
+
+  # Camera input:
+  # - off            -> disables camera
+  # - 0 / 1 / 2      -> local webcam device index
+  # - "http://..."   -> IP camera / stream URL
+  camera: 0
+
+models:
+  # Main reasoning model (conversation, decisions, personality).
+  chat: "anthropic:claude-sonnet-4-6"
+
+  # Vision model for image understanding.
+  vision: "google_genai:gemini-2.5-flash"
+
+  # Speech-to-text model.
+  stt: "faster-whisper"
+
+  # Text-to-speech model.
+  tts: "kokoro"
+
+  # Utility/sub-task model for lightweight background tasks.
+  utility: "openai:gpt-5-mini"
+```
+
+Notes:
+- Model names use langchain `provider:model` format in most setups (example: `ollama:qwen3`).
+- `system.device`, `system.language`, `system.base_url`, `system.camera`, and all `models.*` keys are required by the backend config loader.
+
 ⚡ Setup for the best *performance*:
 ```yaml
-models: 
+models:
   chat: "anthropic:claude-sonnet-4-6" 
-  vision: "google:gemini-3-flash"
+  vision: "google_genai:gemini-2.5-flash"
   stt: "faster-whisper"
-  tts: "ElevenLabs"
-  utility: "deepseek-chat"
+  tts: "elevenlabs"
+  utility: "openai:gpt-5-mini"
 ```
 
 🆓 Setup for *completely free* if you have a decent GPU:
 ```yaml
-models: 
+models:
   chat: "ollama:qwen3"
   vision: "ollama:llava"
   stt: "faster-whisper"

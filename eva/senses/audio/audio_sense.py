@@ -204,8 +204,9 @@ class AudioSense:
                         else None
                     )
                     buffer.push("audio", content, metadata=metadata)
+                    logger.debug(f"AudioSense: pushed audio text — {content}")
                 else:
-                    logger.debug("AudioSense: no speech detected")
+                    logger.warning("AudioSense: no speech detected")
             except Exception as e:
                 logger.error(f"AudioSense: transcription error — {e}")
 

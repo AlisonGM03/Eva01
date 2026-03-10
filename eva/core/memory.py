@@ -80,6 +80,7 @@ class MemoryDB:
                 continue
 
             tool_calls = msg.tool_calls
+            has_speak_call = any(tc.get("name") == "speak" for tc in tool_calls)
             call_ids = {tc['id'] for tc in tool_calls}
 
             # Collect matching ToolMessages
@@ -105,10 +106,12 @@ class MemoryDB:
                 result.append(AIMessage(content="\n\n".join(parts)))
 
             i = j
+            # ToolNode often returns an extra AI echo after `speak`; tool output already
+            # captures the spoken line, so skip the immediate non-tool AI follow-up.
             if i < len(history) and isinstance(history[i], AIMessage) \
-                and not history[i].content \
                 and not getattr(history[i], 'tool_calls', None):
-                i += 1
+                if has_speak_call or not history[i].content:
+                    i += 1
 
         # Strip metadata bloat (API signatures, usage stats) from current turn
         for msg in current_turn:
