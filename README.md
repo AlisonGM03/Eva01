@@ -142,10 +142,6 @@ cp .env.example .env
 
 Edit `config/eva.yaml` to configure EVA:
 
-### `config/eva.yaml` 
-
-Use this as a full template (all required keys included):
-
 ```yaml
 system:
   # Where EVA runs: "local" for direct mic/camera/speaker, "server" for headless/API style.

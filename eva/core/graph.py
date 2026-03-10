@@ -34,6 +34,8 @@ class EvaState(TypedDict):
 
 class Brain:
     """EVA's brain graph — orchestrates agent, memory, and workflow."""
+    
+    _RECURSION_LIMIT = 50
 
     def __init__(
         self,
@@ -47,6 +49,7 @@ class Brain:
         self.cortex = Cortex(model_name=model_name, tools=self.tools, people_db=people_db)
         self.memory = memory
         
+        self._processing = False
         self.thread_id = self._new_thread_id()
         self._config = self._get_config()
         self._terminal_tools = {t.name for t in self.tools if (t.metadata or {}).get("terminal")}
@@ -60,7 +63,7 @@ class Brain:
         """Get the current config for graph execution."""
         return RunnableConfig(
             configurable={"thread_id": self.thread_id},
-            recursion_limit=10
+            recursion_limit=self._RECURSION_LIMIT,
         )
     
     async def _think(self, state: EvaState):
@@ -114,27 +117,34 @@ class Brain:
         return builder.compile(checkpointer=checkpointer)
 
 
+    def is_busy(self) -> bool:
+        """ Indicates if the brain is currently processing an input."""
+        return self._processing
+
     async def invoke(self, entry: SenseEntry):
         """Send a sensory input through the graph."""
-        
-        # Extract face IDs from vision metadata
-        face_ids = []
-        if entry.metadata and "faces" in entry.metadata:
-            face_ids = entry.metadata["faces"]
+        self._processing = True
+        try:
+            # Extract face IDs from vision metadata
+            face_ids = []
+            if entry.metadata and "faces" in entry.metadata:
+                face_ids = entry.metadata["faces"]
 
-        # Track seen people for relationship reflection at flush time.
-        if face_ids:
-            self.memory.add_people_to_session(set(face_ids))
+            # Track seen people for relationship reflection at flush time.
+            if face_ids:
+                self.memory.add_people_to_session(set(face_ids))
 
-        message = HumanMessage(content=entry.content)
-            
-        await self._graph.ainvoke(
-            EvaState(
-                messages=[message],
-                present_people=set(face_ids),
-            ),
-            config=self._config,
-        )
+            message = HumanMessage(content=entry.content)
+
+            await self._graph.ainvoke(
+                EvaState(
+                    messages=[message],
+                    present_people=set(face_ids),
+                ),
+                config=self._config,
+            )
+        finally:
+            self._processing = False
 
     async def shutdown(self):
         """Graceful shutdown — flush memory, close resources."""

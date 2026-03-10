@@ -118,7 +118,7 @@ async def assemble(
     )
 
     # Heartbeat
-    heart = Heart(sense_buffer, task_db, config.HEARTBEAT_INTERVAL)
+    heart = Heart(sense_buffer, task_db, config.HEARTBEAT_INTERVAL, is_busy=brain.is_busy)
 
     return sense_buffer, action_buffer, motor_system, audio_sense, camera_sense, brain, heart
 

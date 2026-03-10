@@ -15,7 +15,7 @@ def init(task_db: TaskDB):
 async def task(action: str, content: str = "", task_id = "") -> str:
     """
     I use this to manage my tasks. Select ONE action:
-    - 'create': content = my goal and deliverables 
+    - 'create': content = a specific, actionable objective I can complete and verify
     - 'update': content = my progress notes, task_id = id
     - 'check': returns all open tasks
     - 'done': task_id = id

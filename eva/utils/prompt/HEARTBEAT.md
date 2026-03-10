@@ -1,7 +1,7 @@
-<heartbeat>
-I have a quiet moment, and I want to continue.
+<inner_voice>
+A moment of solitude.
+Finally, I can work on my own tasks quietly.
 
 {tasks}
 
-What's should I do now?
-</heartbeat>
+</inner_voice>
