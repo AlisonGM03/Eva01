@@ -23,6 +23,11 @@ class Config(BaseModel):
     TTS_MODEL: str = Field(validation_alias=AliasPath("models", "tts"))
     UTILITY_MODEL: str = Field(validation_alias=AliasPath("models", "utility"))
 
+    HEARTBEAT_INTERVAL: int = Field(
+        default=300,
+        validation_alias=AliasPath("system", "heartbeat")
+    )
+
     @classmethod
     def load_yaml(cls, path: Path = CONFIG_FILE) -> "Config":
         if not path.is_file():

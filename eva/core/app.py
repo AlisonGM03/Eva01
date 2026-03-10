@@ -14,6 +14,8 @@ from .graph import Brain
 from .memory import MemoryDB
 from .people import PeopleDB
 from .journal import JournalDB
+from .tasks import TaskDB
+from .heart import Heart
 from .db import SQLiteHandler
 from eva.senses import (
     SenseBuffer, 
@@ -43,14 +45,20 @@ async def assemble(
     sense_buffer = SenseBuffer()
     sense_buffer.attach_loop(loop)
 
-    # People & Memory
+    # People, Memory & Tasks
     people_db = PeopleDB(db)
     journal_db = JournalDB(db)
+    task_db = TaskDB(db)
     await asyncio.gather(
         people_db.init_db(),
         journal_db.init_db(),
+        task_db.init_db(),
     )
     memory_db = MemoryDB(config.UTILITY_MODEL, people_db, journal_db)
+
+    # Init task tool before Brain (Brain calls load_tools in __init__)
+    from eva.tools import tasks as task_tools
+    task_tools.init(task_db)
     
     # Initialize vision sense
     camera_sense = None
@@ -109,7 +117,10 @@ async def assemble(
         checkpointer=checkpointer,
     )
 
-    return sense_buffer, action_buffer, motor_system, audio_sense, camera_sense, brain
+    # Heartbeat
+    heart = Heart(sense_buffer, task_db, config.HEARTBEAT_INTERVAL)
+
+    return sense_buffer, action_buffer, motor_system, audio_sense, camera_sense, brain, heart
 
 
 async def breathe(sense_buffer: SenseBuffer, brain: Brain) -> None:
@@ -134,7 +145,7 @@ async def wake() -> None:
     eva_db = SQLiteHandler()
 
     async with AsyncSqliteSaver.from_conn_string(str(graph_db)) as checkpointer:
-        sense_buffer, action_buffer, motor_system, audio_sense, camera_sense, brain = await assemble(
+        sense_buffer, action_buffer, motor_system, audio_sense, camera_sense, brain, heart = await assemble(
             config=eva_configuration, 
             db=eva_db, 
             checkpointer=checkpointer
@@ -143,6 +154,7 @@ async def wake() -> None:
         try:
             await motor_system.start()
             await asyncio.gather(
+                heart.start(),
                 breathe(sense_buffer, brain),
                 action_buffer.start_loop(),
             )

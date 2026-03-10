@@ -126,7 +126,7 @@ class Brain:
         if face_ids:
             self.memory.add_people_to_session(set(face_ids))
 
-        message = HumanMessage(content=f"{entry.content}")
+        message = HumanMessage(content=entry.content)
             
         await self._graph.ainvoke(
             EvaState(

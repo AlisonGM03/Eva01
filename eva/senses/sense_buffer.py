@@ -44,7 +44,8 @@ class SenseBuffer:
     def __init__(self) -> None:
         self._queue: asyncio.Queue[SenseEntry] = asyncio.Queue()
         self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._pending: list[SenseEntry] = []   
+        self._pending: list[SenseEntry] = []
+        self.last_external_at: datetime = datetime.now()
 
     def attach_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         """Bind the running event loop.  Called once at startup.
@@ -69,6 +70,8 @@ class SenseBuffer:
         Queue from outside the loop's thread).  If no loop is attached yet,
         holds the entry in a plain list so nothing is lost during startup.
         """
+        if type != "thought":
+            self.last_external_at = datetime.now()
         entry = SenseEntry(type=type, content=content, metadata=metadata)
         if self._loop is not None and self._loop.is_running():
             self._loop.call_soon_threadsafe(self._queue.put_nowait, entry)

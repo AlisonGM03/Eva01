@@ -227,7 +227,8 @@ The tool layer is modular: each tool is a small capability that can be added or 
 | **`stay_quiet`** | Lets Eva intentionally stay silent with an explicit reason |
 | **`show`** | Opens files/urls thru a device so she can show thing |
 | **`web_search`** | Searches the web for up-to-date information |
-| **`watch_youtube`** | Finds a YouTube video and analyzes its content |
+| **`search_youtube`** | Finds a YouTube video  |
+| **`watch_video`** | Analyzes video content (Gemini API required) |
 | **`feel`** | Logs a concise internal feeling/monologue state |
 
 Want to add your own tool? Drop a new module in `eva/tools/`, register it in the tool constructor flow, and Eva can start using it in decisions.

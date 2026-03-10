@@ -4,6 +4,8 @@ EVA's eyes for YouTube — search, discover, and watch videos.
 
 import asyncio
 from typing import Dict, List, Any
+
+from config import logger
 import yt_dlp
 from langchain_core.tools import tool
 from eva.tools import ToolError
@@ -14,12 +16,10 @@ _YDL_OPTS: Any = {"quiet": True, "extract_flat": True, "no_warnings": True}
 _analyzer: VideoAnalyzer | None = None
 
 
-def _get_analyzer() -> VideoAnalyzer:
+def _get_analyzer() -> VideoAnalyzer | None:
     global _analyzer
     if _analyzer is None:
         _analyzer = VideoAnalyzer()
-    return _analyzer
-
 
 def _search(query: str) -> List[Dict[str, Any]]:
     """Blocking yt-dlp search — runs in a thread."""
@@ -37,7 +37,7 @@ async def search_youtube(query: str) -> str:
     try:
         videos = await asyncio.to_thread(_search, query)
     except Exception as e:
-        raise ToolError(str(e), tool_name="search_youtube") from e
+        raise ToolError(str(e), tool_name="youtube") from e
 
     if not videos:
         return f"I didn't find any videos for '{query}'."
@@ -63,9 +63,14 @@ async def watch_video(url: str) -> str:
         return "I need a URL to watch."
 
     try:
-        summary, error = await _get_analyzer().analyze(url)
+        analyzer = _get_analyzer()
+        if analyzer is None:
+            return "Video Analyzer is not available. Cannot watch video."
+        
+        summary, error = await analyzer.analyze(url)
     except Exception as e:
-        raise ToolError(str(e), tool_name="watch_video") from e
+        logger.error(f"Video analysis failed for {url} — {e}")
+        raise ToolError(str(e), tool_name="Video Analyzer") from e
 
     if not summary:
         return f"I couldn't watch the video at {url}. {error}"
