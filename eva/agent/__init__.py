@@ -1,2 +1,2 @@
-from .cortex import Cortex
+from .llm import Cortex
 # from .smallagent import SmallAgent

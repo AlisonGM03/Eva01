@@ -15,7 +15,6 @@ from langchain_core.messages import (
     BaseMessage,
 )
 
-
 from config import logger
 from eva.senses.sense_buffer import SenseEntry
 from eva.agent.constructor import PromptConstructor
