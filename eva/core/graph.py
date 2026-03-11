@@ -8,7 +8,7 @@ Pure workflow topology. The Cortex owns the LLM and prompt logic.
 """
 
 from datetime import datetime
-from typing import List, Annotated, TypedDict, Set 
+from typing import List, Dict, Annotated, TypedDict, Set 
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, add_messages, END
@@ -21,9 +21,8 @@ from langchain_core.messages import (
 
 from config import logger
 from eva.actions.action_buffer import ActionBuffer
-from eva.agent.llm import Cortex
+from eva.agent import Cortex, PromptConstructor
 from eva.core.memory import MemoryDB
-from eva.core.people import PeopleDB
 from eva.senses.sense_buffer import SenseEntry
 from eva.tools import load_tools, handle_tool_error
 
@@ -33,7 +32,7 @@ class EvaState(TypedDict):
     present_people: Set[str]
 
 class Brain:
-    """EVA's brain graph — orchestrates agent, memory, and workflow."""
+    """EVA's brain graph — orchestrates agent, memory, and workflow. """
     
     _RECURSION_LIMIT = 50
 
@@ -41,12 +40,13 @@ class Brain:
         self,
         model_name: str,
         action_buffer: ActionBuffer,
-        people_db: PeopleDB,
         memory: MemoryDB,
+        people: Dict,        
         checkpointer=None,
     ):
         self.tools = load_tools(action_buffer)
-        self.cortex = Cortex(model_name=model_name, tools=self.tools, people_db=people_db)
+        self.cortex = Cortex(model_name=model_name, tools=self.tools)
+        self.constructor = PromptConstructor(people=people) 
         self.memory = memory
         
         self._processing = False
@@ -72,7 +72,8 @@ class Brain:
         distilled, journal = await self.memory.prepare_context(state["messages"])
         
         response = await self.cortex.respond(
-            distilled,
+            constructor=self.constructor,
+            messages=distilled,
             present_people=state.get("present_people", set()),
             journal=journal,
         )

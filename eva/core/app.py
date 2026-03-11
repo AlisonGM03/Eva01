@@ -112,8 +112,8 @@ async def assemble(
     brain = Brain(
         model_name=config.CHAT_MODEL,
         action_buffer=action_buffer,
-        people_db=people_db,
         memory=memory_db,
+        people=people_db.get_all(),
         checkpointer=checkpointer,
     )
 

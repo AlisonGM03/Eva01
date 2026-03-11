@@ -16,9 +16,7 @@ from langchain_core.messages import (
 )
 
 from config import logger
-from eva.senses.sense_buffer import SenseEntry
 from eva.agent.constructor import PromptConstructor
-from eva.core.people import PeopleDB
 
 
 class Cortex:
@@ -30,11 +28,9 @@ class Cortex:
         self,
         model_name: str,
         tools: list[BaseTool],
-        people_db: PeopleDB,
     ) -> None:
 
         self.model_name = model_name
-        self.constructor = PromptConstructor(people_db=people_db)
         self._llm = init_chat_model(
             model=model_name,
             temperature=self._TEMPERATURE
@@ -44,6 +40,7 @@ class Cortex:
 
     async def respond(
         self,
+        constructor: PromptConstructor,
         messages: List[BaseMessage],
         present_people: Set[str],
         journal: str = "",
@@ -53,7 +50,7 @@ class Cortex:
         # if sense is audio text, add to messages as HumanMessage; 
         # if it's text, add to system prompt as OBSERVATION
         timestamp = datetime.now().strftime("%A, %B %d, %Y at %I%p")
-        system = self.constructor.build_system(
+        system = constructor.build_system(
             timestamp=timestamp,
             memory=journal,
             present_people=present_people,

@@ -6,7 +6,7 @@ PromptConstructor:
     - Conversation history
 """
 
-from typing import List, Set
+from typing import List, Set, Dict, Any
 from config import logger
 from eva.utils.prompt import load_prompt
 from eva.core.people import PeopleDB
@@ -20,10 +20,10 @@ class PromptConstructor:
         instruction_prompt (str): The instruction prompt loaded from the instructions.md file.
     """
 
-    def __init__(self, people_db: PeopleDB):
+    def __init__(self, people: Dict[str, Any] | None = None):
         self.soul: str = load_prompt("SOUL") # default persona prompt
         self.instructions: str = load_prompt("INSTRUCTIONS") # default instructions prompt
-        self.people_db = people_db
+        self.people: Dict[str, Any] | None = people
 
     def build_system(
         self, 
@@ -59,12 +59,12 @@ class PromptConstructor:
     def _build_people_block(self, present_people: Set[str] | None) -> str :
         """Build <PEOPLE> block from face IDs currently visible to EVA."""
         
-        if not present_people or not self.people_db:
+        if not present_people or not self.people:
             return ""
 
         entries = []
         for person_id in present_people:
-            person = self.people_db.get(person_id)
+            person = self.people.get(person_id)
             if not person:
                 continue
 
