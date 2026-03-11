@@ -16,17 +16,22 @@ class Config(BaseModel):
         validation_alias=AliasPath("system", "camera")
     )
 
+    HEARTBEAT_INTERVAL: int = Field(
+        default=300,
+        validation_alias=AliasPath("system", "heartbeat")
+    )
+    
     # Model settings
     CHAT_MODEL: str = Field(validation_alias=AliasPath("models", "chat"))
     VISION_MODEL: str = Field(validation_alias=AliasPath("models", "vision"))
     STT_MODEL: str = Field(validation_alias=AliasPath("models", "stt"))
     TTS_MODEL: str = Field(validation_alias=AliasPath("models", "tts"))
     UTILITY_MODEL: str = Field(validation_alias=AliasPath("models", "utility"))
-
-    HEARTBEAT_INTERVAL: int = Field(
-        default=300,
-        validation_alias=AliasPath("system", "heartbeat")
+    EMBEDDING_MODEL: str = Field(
+        default="fastembed:bge-small-en-v1.5",
+        validation_alias=AliasPath("models", "embedding"),
     )
+
 
     @classmethod
     def load_yaml(cls, path: Path = CONFIG_FILE) -> "Config":

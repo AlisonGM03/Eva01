@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 
 from config import logger
-from eva.core.db import SQLiteHandler
+from eva.database import SQLiteHandler
 
 
 class TaskDB:

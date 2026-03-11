@@ -28,7 +28,7 @@ from eva.core.people import PeopleDB
 from eva.core.journal import JournalDB
 from eva.core.tasks import TaskDB
 from eva.core.heart import Heart
-from eva.core.db import SQLiteHandler
+from eva.database import SQLiteHandler
 from eva.senses import SenseBuffer, Transcriber, Describer
 from eva.actions import ActionBuffer, ActionEvent
 from eva.actions.base import BaseAction
@@ -133,7 +133,7 @@ async def assemble_server(db: SQLiteHandler, checkpointer: AsyncSqliteSaver):
     brain = Brain(
         model_name=config.CHAT_MODEL,
         action_buffer=action_buffer,
-        people_db=people_db,
+        people=people_db.get_all(),
         memory=memory_db,
         checkpointer=checkpointer,
     )

@@ -57,9 +57,7 @@ class ActionBuffer:
         self._handlers: Dict[str, List[ActionHandler]] = defaultdict(list)
         self._running = False
 
-    # ------------------------------------------------------------------
-    # Registration (called at startup by action consumers)
-    # ------------------------------------------------------------------
+    # ── Registration (called at startup by action consumers) ──────────────
 
     def on(self, action_type: str, handler: ActionHandler) -> None:
         """Register an async handler for an action type.
@@ -69,9 +67,7 @@ class ActionBuffer:
         """
         self._handlers[action_type].append(handler)
 
-    # ------------------------------------------------------------------
-    # Producer side (async — called by LangGraph tools)
-    # ------------------------------------------------------------------
+    # ── Producer side (async — called by LangGraph tools) ────────────────
 
     async def put(
         self,
@@ -88,9 +84,7 @@ class ActionBuffer:
         await self._queue.put(event)
         # logger.debug(f"ActionBuffer: put <{action_type}> — {str(content)}")
 
-    # ------------------------------------------------------------------
-    # Dispatch loop (async — runs as a concurrent task in the spine)
-    # ------------------------------------------------------------------
+    # ── Dispatch loop (async — runs as a concurrent task in the spine) ──
 
     async def start_loop(self) -> None:
         """Dispatch events to registered handlers. Runs forever."""
@@ -130,10 +124,6 @@ class ActionBuffer:
         self._running = False
         # Unblock the queue.get() so the loop can exit
         await self._queue.put(ActionEvent(type="_stop"))
-
-    # ------------------------------------------------------------------
-    # Introspection
-    # ------------------------------------------------------------------
 
     def empty(self) -> bool:
         """True when the queue is empty."""

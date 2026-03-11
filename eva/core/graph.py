@@ -69,13 +69,13 @@ class Brain:
     async def _think(self, state: EvaState):
         """ The "think" node — EVA processes messages and decides on tool calls."""
 
-        distilled, journal = await self.memory.prepare_context(state["messages"])
+        distilled, memory = await self.memory.prepare_context(state["messages"])
         
         response = await self.cortex.respond(
             constructor=self.constructor,
             messages=distilled,
             present_people=state.get("present_people", set()),
-            journal=journal,
+            memory=memory,
         )
 
         return {"messages": [response]}

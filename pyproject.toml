@@ -10,6 +10,19 @@ license = { file = "LICENSE" }
 # Install in dev mode with: pip install -e .
 dependencies = []
 
+[project.optional-dependencies]
+embed-openai = [
+    "openai>=1.0",
+]
+embed-local = [
+    "fastembed>=0.3.0",
+]
+embed-all = [
+    "openai>=1.0",
+    "fastembed>=0.3.0",
+    "sqlite-vec>=0.1.6",
+]
+
 [project.scripts]
 # Run EVA directly from the command line after install:  eva
 eva = "main:main"

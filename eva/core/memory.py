@@ -127,16 +127,29 @@ class MemoryDB:
 
     # ── Context Assembly ─────────────────────────────────────
 
-    async def prepare_context(self, messages: list, limit: int = 3) -> tuple[list, str]:
+    async def prepare_context(self, messages: list, limit: int = 5) -> tuple[list, str]:
         """Distill current session messages + build journal context.
 
         Returns (distilled_messages, journal_summary).
         """
         distilled = self.distill(messages)
 
-        # Get recent journal entries, limit to 3
+        # Get recent journal entries, limit to 5
         entries = await self._journal.get_recent(limit)
         journal_summary = "\n\n".join(entries) if entries else ""
+
+        # Testing path: if no recent summary exists, try semantic recall from current context.
+        if not journal_summary:
+            query = ""
+            for msg in reversed(distilled):
+                if isinstance(msg, HumanMessage):
+                    query = self._text_content(msg.content)
+                    break
+            if not query and distilled:
+                query = self._text_content(distilled[-1].content)
+
+            if query:
+                journal_summary = await self._journal.get_semantic_context(query=query, limit=limit)
 
         return distilled, journal_summary
 

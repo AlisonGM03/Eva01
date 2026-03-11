@@ -16,7 +16,6 @@ from .people import PeopleDB
 from .journal import JournalDB
 from .tasks import TaskDB
 from .heart import Heart
-from .db import SQLiteHandler
 from eva.senses import (
     SenseBuffer, 
     AudioSense, 
@@ -26,6 +25,8 @@ from eva.senses import (
     Describer,
     FaceIdentifier
 )
+
+from eva.database import SQLiteHandler, EmbeddingEngine
 from eva.actions import ActionBuffer, VoiceActor, Browser, MotorSystem
 from eva.actions.voice.speaker import Speaker
 
@@ -45,9 +46,12 @@ async def assemble(
     sense_buffer = SenseBuffer()
     sense_buffer.attach_loop(loop)
 
+    # Semantic embedding engine (safe-degrading if provider/deps are unavailable)
+    embedder = EmbeddingEngine(config.EMBEDDING_MODEL, base_url=config.BASE_URL)
+
     # People, Memory & Tasks
     people_db = PeopleDB(db)
-    journal_db = JournalDB(db)
+    journal_db = JournalDB(db, embedder=embedder)
     task_db = TaskDB(db)
     await asyncio.gather(
         people_db.init_db(),
@@ -79,6 +83,7 @@ async def assemble(
 
     # Initialize heavy models concurrently to reduce startup latency.
     init_tasks = [
+        asyncio.to_thread(embedder.init_model),
         asyncio.to_thread(speaker.init_model),
         asyncio.to_thread(transcriber.init_model),
         asyncio.to_thread(speaker_identifier.init_model),

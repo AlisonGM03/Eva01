@@ -52,5 +52,7 @@ class Heart:
 
     async def _pulse(self) -> str:
         """Build the inner-voice prompt for this heartbeat."""
+        # TODO: Add semantic-memory healthcheck here in the future
+        # (provider/model drift detection and stale index status reporting).
         tasks = await self.task_db.summary()
         return load_prompt("HEARTBEAT").format(tasks=tasks)

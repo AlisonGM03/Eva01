@@ -43,7 +43,7 @@ class Cortex:
         constructor: PromptConstructor,
         messages: List[BaseMessage],
         present_people: Set[str],
-        journal: str = "",
+        memory: str = "",
     ) -> AIMessage:
         """Construct prompt, trim messages, invoke LLM, return response."""
         
@@ -52,7 +52,7 @@ class Cortex:
         timestamp = datetime.now().strftime("%A, %B %d, %Y at %I%p")
         system = constructor.build_system(
             timestamp=timestamp,
-            memory=journal,
+            memory=memory,
             present_people=present_people,
         )
 

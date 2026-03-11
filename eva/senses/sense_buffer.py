@@ -58,9 +58,7 @@ class SenseBuffer:
             self._queue.put_nowait(entry)
         self._pending.clear()
 
-    # ------------------------------------------------------------------
-    # Producer side (sync — safe to call from any thread)
-    # ------------------------------------------------------------------
+    # ── Producer side (sync — safe to call from any thread) ─────────────────
 
     def push(self, type: str, content: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         """Enqueue a sense event.  Safe to call from any plain thread.
@@ -78,9 +76,7 @@ class SenseBuffer:
         else:
             self._pending.append(entry)
 
-    # ------------------------------------------------------------------
-    # Consumer side (async — LangGraph / coroutines only)
-    # ------------------------------------------------------------------
+    # ── Consumer side (async — LangGraph / coroutines only) ────────────────
 
     async def get(self) -> SenseEntry:
         """Wait for and return the next sense event (blocks until one arrives)."""
@@ -99,9 +95,7 @@ class SenseBuffer:
                 break
         return events
 
-    # ------------------------------------------------------------------
-    # Introspection / test helpers
-    # ------------------------------------------------------------------
+    # ── Introspection / test helpers ─────────────────────────────────────
 
     def peek(self) -> list[dict]:
         """Return a snapshot of queued entries as dicts (non-destructive).
@@ -124,9 +118,9 @@ class SenseBuffer:
         entries: List[Dict[str, Any]] = []
         # Drain from pending (pre-loop buffer) first
         for entry in self._pending:
-            entries.append(entry.to_dict())  # type: ignore[attr-defined]
+            entries.append(entry.to_dict())  # type: ignore
         self._pending.clear()
-        # Drain from the asyncio queue
+
         while not self._queue.empty():
             try:
                 entries.append(self._queue.get_nowait().to_dict())
