@@ -28,9 +28,13 @@ from eva.core.people import PeopleDB
 from eva.core.journal import JournalDB
 from eva.core.tasks import TaskDB
 from eva.core.heart import Heart
-from eva.database import SQLiteHandler
-from eva.senses import SenseBuffer, Transcriber, Describer
-from eva.actions import ActionBuffer, ActionEvent
+from eva.database.db import SQLiteHandler
+from eva.database.embeddings import EmbeddingEngine
+from eva.database.vector_index import VectorIndex
+from eva.senses.sense_buffer import SenseBuffer
+from eva.senses.audio.transcriber import Transcriber
+from eva.senses.vision.describer import Describer
+from eva.actions.action_buffer import ActionBuffer, ActionEvent
 from eva.actions.base import BaseAction
 from eva.actions.voice.speaker import Speaker
 
@@ -105,9 +109,13 @@ async def assemble_server(db: SQLiteHandler, checkpointer: AsyncSqliteSaver):
     sense_buffer = SenseBuffer()
     sense_buffer.attach_loop(loop)
 
+    # Semantic embedding engine
+    embedder = EmbeddingEngine(config.EMBEDDING_MODEL, base_url=config.BASE_URL)
+
     # DBs
     people_db = PeopleDB(db)
-    journal_db = JournalDB(db)
+    journal_vectors = VectorIndex(db, embedder, prefix="journal")
+    journal_db = JournalDB(db, vectors=journal_vectors)
     task_db = TaskDB(db)
     await asyncio.gather(
         people_db.init_db(),
@@ -125,6 +133,7 @@ async def assemble_server(db: SQLiteHandler, checkpointer: AsyncSqliteSaver):
     transcriber = Transcriber(config.STT_MODEL)
     describer = Describer(config.VISION_MODEL)
     await asyncio.gather(
+        asyncio.to_thread(embedder.init_model),
         asyncio.to_thread(speaker.init_model),
         asyncio.to_thread(transcriber.init_model),
     )

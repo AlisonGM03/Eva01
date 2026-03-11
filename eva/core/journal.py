@@ -1,26 +1,26 @@
 """
 EVA's journal — episodic memory stored in SQLite.
 
-Pure database operations: write entries, read recent, create tables.
+Pure database operations: write entries, read recent, search semantically.
 Orchestration (flush, distill, LLM calls) lives in memory.py.
 """
 
+import asyncio
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
 from config import logger
-from eva.database import SQLiteHandler
-from eva.database.vector_utils import blob_to_vector, cosine_similarity, vector_to_blob
-from eva.database.embeddings import EmbeddingEngine
+from eva.database.db import SQLiteHandler
+from eva.database.vector_index import VectorIndex
 
 
 class JournalDB:
     """EVA's journal — episodic memory store."""
-    
-    def __init__(self, db: SQLiteHandler, embedder: Optional[EmbeddingEngine] = None):
+
+    def __init__(self, db: SQLiteHandler, vectors: Optional[VectorIndex] = None):
         self._db = db
-        self._embedder = embedder
+        self._vectors = vectors
         self._initialized = False
 
     @staticmethod
@@ -34,7 +34,6 @@ class JournalDB:
             return row["content"]
 
     async def init_db(self) -> None:
-        """initialize_database."""
         if self._initialized:
             return
         await self._db.execute(
@@ -49,59 +48,26 @@ class JournalDB:
         )
         await self._db.execute(
             """
-            CREATE TABLE IF NOT EXISTS knowledge (
-                id          TEXT PRIMARY KEY,
-                content     TEXT NOT NULL,
-                created_at  TIMESTAMP
-            )
-            """,
-        )
-        await self._db.execute(
-            """
-            CREATE TABLE IF NOT EXISTS journal_semantic_index (
-                entry_id     TEXT PRIMARY KEY,
-                provider     TEXT NOT NULL,
-                model        TEXT NOT NULL,
-                dimensions   INTEGER NOT NULL,
-                embedding    BLOB NOT NULL,
-                created_at   TIMESTAMP,
+            CREATE TABLE IF NOT EXISTS journal_source (
+                entry_id    TEXT PRIMARY KEY,
+                source      TEXT NOT NULL,
                 FOREIGN KEY(entry_id) REFERENCES journal(id) ON DELETE CASCADE
             )
             """,
         )
+        if self._vectors:
+            await self._vectors.ensure_schema()
         self._initialized = True
 
-    async def _index_entry(self, entry_id: str, content: str, created_at: str) -> None:
-        """Index journal text for semantic retrieval. Non-fatal on failure."""
-        if not self._embedder or not self._embedder.enabled:
-            return
+    async def add(self, content: str, session_id: str, source: str = "") -> str:
+        """Write an episode to the journal. Returns the entry id.
 
-        vector = await self._embedder.embed_one(content)
-        if not vector:
-            return
-
-        try:
-            await self._db.execute(
-                """
-                INSERT OR REPLACE INTO journal_semantic_index
-                (entry_id, provider, model, dimensions, embedding, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    entry_id,
-                    self._embedder.provider_id(),
-                    self._embedder.model_id(),
-                    len(vector),
-                    vector_to_blob(vector),
-                    created_at,
-                ),
-            )
-        except Exception as e:
-            logger.warning(f"JournalDB: semantic index write skipped — {e}")
-
-    async def add(self, content: str, session_id: str) -> str:
-        """Write an episode to the journal. Returns the entry id."""
-        
+        Args:
+            content: LLM-summarized journal entry (what EVA reads back).
+            session_id: Session identifier for grouping entries.
+            source: Raw conversation text. Embedded instead of content
+                    for richer semantic search. Falls back to content if empty.
+        """
         entry_id = uuid.uuid4().hex[:12]
         now = datetime.now(timezone.utc).isoformat()
         try:
@@ -109,15 +75,23 @@ class JournalDB:
                 "INSERT INTO journal (id, content, session_id, created_at) VALUES (?, ?, ?, ?)",
                 (entry_id, content, session_id, now)
             )
-            await self._index_entry(entry_id, content, now)
+            if source:
+                await self._db.execute(
+                    "INSERT INTO journal_source (entry_id, source) VALUES (?, ?)",
+                    (entry_id, source),
+                )
+            # Embed the source (rich) when available, fall back to content (summary)
+            if self._vectors:
+                embed_text = source or content
+                asyncio.create_task(self._vectors.upsert(entry_id, embed_text, now))
             return entry_id
         except Exception as e:
             logger.error(f"JournalDB: failed to write journal — {e}")
             return ""
 
     async def get_recent(self, limit: int = 3) -> List[str]:
-        """Get recent journal entries — today's entries, or last session's if none today."""
-        
+        """Get today's journal entries."""
+
         today_start = datetime.now(timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0
         ).isoformat()
@@ -134,47 +108,23 @@ class JournalDB:
 
     async def get_semantic_context(self, query: str, limit: int = 5) -> str:
         """Return formatted journal snippets semantically close to query text."""
-        if not query or not query.strip():
-            return ""
-        if not self._embedder or not self._embedder.enabled:
+        if not self._vectors:
             return ""
 
-        query_vector = await self._embedder.embed_one(query)
-        if not query_vector:
+        results = await self._vectors.search(query, limit=limit)
+        if not results:
             return ""
 
+        entry_ids = [eid for eid, _ in results]
+        placeholders = ",".join("?" * len(entry_ids))
         rows = list(await self._db.fetchall(
-            """
-            SELECT j.content, j.created_at, s.embedding
-            FROM journal_semantic_index s
-            JOIN journal j ON j.id = s.entry_id
-            WHERE s.provider = ? AND s.model = ? AND s.dimensions = ?
-            ORDER BY s.created_at DESC
-            LIMIT 256
-            """,
-            (
-                self._embedder.provider_id(),
-                self._embedder.model_id(),
-                len(query_vector),
-            ),
+            f"SELECT id, content, created_at FROM journal WHERE id IN ({placeholders})",
+            tuple(entry_ids),
         ))
 
         if not rows:
             return ""
 
-        scored: list[tuple[float, object]] = []
-        for row in rows:
-            try:
-                row_vec = blob_to_vector(row["embedding"])
-                score = cosine_similarity(query_vector, row_vec)
-                if score > 0:
-                    scored.append((score, row))
-            except Exception:
-                continue
-
-        if not scored:
-            return ""
-
-        scored.sort(key=lambda item: item[0], reverse=True)
-        selected = [self._format_row(row) for _, row in scored[:limit]]
-        return "\n\n".join(selected)
+        # Selection was by relevance, but present in chronological order
+        rows.sort(key=lambda r: r["created_at"])
+        return "\n\n".join(self._format_row(r) for r in rows)

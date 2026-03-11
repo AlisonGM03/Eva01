@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Iterable, Dict, Set
 
 from config import logger, DATA_DIR
-from eva.database import SQLiteHandler
+from eva.database.db import SQLiteHandler
 
 
 class PeopleDB:

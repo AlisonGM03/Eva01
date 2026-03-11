@@ -32,17 +32,15 @@ class Config(BaseModel):
         validation_alias=AliasPath("models", "embedding"),
     )
 
-
     @classmethod
     def load_yaml(cls, path: Path = CONFIG_FILE) -> "Config":
         if not path.is_file():
             raise FileNotFoundError(
                 f"EVA config file not found at '{path}'. "
-                "Create backend/app/config/eva.yaml before starting EVA."
+                "Create config/eva.yaml before starting EVA."
             )
             
         with path.open("r", encoding="utf-8") as f:
-            # Load YAML and validate it against the model
             data = yaml.safe_load(f) or {}
             return cls.model_validate(data)
 

@@ -34,6 +34,13 @@ class OpenAIEmbedding():
         )
         return list(response.data[0].embedding)
 
+    async def embed_many(self, texts: list[str]) -> list[list[float]]:
+        response = await self._client.embeddings.create(
+            model=self.model,
+            input=texts,
+        )
+        return [list(item.embedding) for item in response.data]
+
 
 class FastEmbedEmbedding():
     _ALIASES = {
@@ -58,6 +65,14 @@ class FastEmbedEmbedding():
             output = next(iter(self._model.embed([text])))
             return output.tolist() if hasattr(output, "tolist") else [float(v) for v in output]
 
+        return await asyncio.to_thread(_run)
+
+    async def embed_many(self, texts: list[str]) -> list[list[float]]:
+        def _run() -> list[list[float]]:
+            return [
+                o.tolist() if hasattr(o, "tolist") else [float(v) for v in o]
+                for o in self._model.embed(texts)
+            ]
         return await asyncio.to_thread(_run)
 
 
@@ -122,7 +137,7 @@ class EmbeddingEngine:
 
     async def embed_one(self, text: str) -> Optional[list[float]]:
         """Return embedding vector for text, or None when disabled/failing."""
-        if not self._enabled:
+        if not self._enabled or not self._embedding:
             return None
 
         if not text or not text.strip():
@@ -130,9 +145,6 @@ class EmbeddingEngine:
             return None
 
         try:
-            if self._embedding is None:
-                return None
-
             vector = await self._embedding.embed(text)
             if self._dimension is None:
                 self._dimension = len(vector)
@@ -140,3 +152,24 @@ class EmbeddingEngine:
         except Exception as e:
             logger.warning(f"EmbeddingEngine: {self.provider} embedding failed - {e}")
             return None
+
+    async def embed_many(self, texts: list[str]) -> list[Optional[list[float]]]:
+        """Embed multiple texts. Returns list parallel to input; None for empty/failed."""
+        if not self._enabled or not self._embedding:
+            return [None] * len(texts)
+
+        valid_indices = [i for i, t in enumerate(texts) if t and t.strip()]
+        if not valid_indices:
+            return [None] * len(texts)
+
+        try:
+            vectors = await self._embedding.embed_many([texts[i] for i in valid_indices])
+            result: list[Optional[list[float]]] = [None] * len(texts)
+            for idx, vec in zip(valid_indices, vectors):
+                result[idx] = vec
+                if self._dimension is None and vec:
+                    self._dimension = len(vec)
+            return result
+        except Exception as e:
+            logger.warning(f"EmbeddingEngine: batch embed failed — {e}")
+            return [None] * len(texts)

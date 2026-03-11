@@ -17,6 +17,7 @@ from eva.actions.action_buffer import ActionBuffer
 
 class ToolError(Exception):
     """Raised by tools to carry their name alongside the error."""
+
     def __init__(self, message: str, tool_name: str):
         super().__init__(message)
         self.tool_name = tool_name
@@ -27,7 +28,6 @@ def handle_tool_error(e: Exception) -> str:
     tool = getattr(e, "tool_name", None)
     prefix = f"My {tool}" if tool else "That tool"
 
-    # Inspect the root cause for network/timeout signals
     cause = e.__cause__ or e
     cause_cls = type(cause).__name__
     cause_str = str(cause).lower()
@@ -35,7 +35,9 @@ def handle_tool_error(e: Exception) -> str:
     if "Timeout" in cause_cls or "timeout" in cause_str:
         return f"{prefix} ran out of time — the service is slow or overloaded."
 
-    if "Connection" in cause_cls or any(x in cause_str for x in ("connection", "unreachable", "socket")):
+    if "Connection" in cause_cls or any(
+        x in cause_str for x in ("connection", "unreachable", "socket")
+    ):
         return f"{prefix} can't reach the service — there are connection issues."
 
     return f"{prefix} ran into an error: {cause}. It needs to be fixed."
@@ -43,8 +45,7 @@ def handle_tool_error(e: Exception) -> str:
 
 def load_tools(action_buffer: ActionBuffer) -> list[BaseTool]:
     """Scan this folder, import each module, collect tools."""
-
-    tools = []
+    tools: list[BaseTool] = []
     pkg_dir = os.path.dirname(__file__)
 
     for filename in sorted(os.listdir(pkg_dir)):
@@ -61,17 +62,14 @@ def load_tools(action_buffer: ActionBuffer) -> list[BaseTool]:
         for attr_name in dir(module):
             obj = getattr(module, attr_name)
 
-            # Ready-to-use @tool instances
             if isinstance(obj, BaseTool):
                 tools.append(obj)
                 logger.debug(f"Tools: loaded {obj.name}")
-
-            # Factories: make_*(...) → BaseTool
             elif callable(obj) and attr_name.startswith("make_"):
                 try:
                     tool = obj(action_buffer)
                     tools.append(tool)
-                    logger.debug(f"Tools: loaded {tool.name} (factory)") #type: ignore
+                    logger.debug(f"Tools: loaded {tool.name} (factory)")  # type: ignore[attr-defined]
                 except Exception as e:
                     logger.warning(f"Tools: factory {attr_name} failed — {e}")
 

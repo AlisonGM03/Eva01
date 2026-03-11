@@ -16,18 +16,21 @@ from .people import PeopleDB
 from .journal import JournalDB
 from .tasks import TaskDB
 from .heart import Heart
-from eva.senses import (
-    SenseBuffer, 
-    AudioSense, 
-    CameraSense,
-    Transcriber,
-    SpeakerIdentifier,
-    Describer,
-    FaceIdentifier
-)
+from eva.senses.sense_buffer import SenseBuffer
+from eva.senses.audio.audio_sense import AudioSense
+from eva.senses.audio.transcriber import Transcriber
+from eva.senses.audio.speaker_identifier import SpeakerIdentifier
+from eva.senses.vision.vision_sense import CameraSense
+from eva.senses.vision.describer import Describer
+from eva.senses.vision.face_identifier import FaceIdentifier
 
-from eva.database import SQLiteHandler, EmbeddingEngine
-from eva.actions import ActionBuffer, VoiceActor, Browser, MotorSystem
+from eva.database.db import SQLiteHandler
+from eva.database.embeddings import EmbeddingEngine
+from eva.database.vector_index import VectorIndex
+from eva.actions.action_buffer import ActionBuffer
+from eva.actions.voice.voice_actor import VoiceActor
+from eva.actions.machine.browser import Browser
+from eva.actions.system import MotorSystem
 from eva.actions.voice.speaker import Speaker
 
 
@@ -51,7 +54,8 @@ async def assemble(
 
     # People, Memory & Tasks
     people_db = PeopleDB(db)
-    journal_db = JournalDB(db, embedder=embedder)
+    journal_vectors = VectorIndex(db, embedder, prefix="journal")
+    journal_db = JournalDB(db, vectors=journal_vectors)
     task_db = TaskDB(db)
     await asyncio.gather(
         people_db.init_db(),

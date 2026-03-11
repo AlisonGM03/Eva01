@@ -21,7 +21,8 @@ from langchain_core.messages import (
 
 from config import logger
 from eva.actions.action_buffer import ActionBuffer
-from eva.agent import Cortex, PromptConstructor
+from eva.agent.llm import Cortex
+from eva.agent.constructor import PromptConstructor
 from eva.core.memory import MemoryDB
 from eva.senses.sense_buffer import SenseEntry
 from eva.tools import load_tools, handle_tool_error
