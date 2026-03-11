@@ -7,7 +7,6 @@ from eva.core.app import wake
 
 
 def main():
-    logger.info("Starting EVA...")
     try:
         asyncio.run(wake())
     except KeyboardInterrupt:
@@ -17,4 +16,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logger.info("And on the seventh day, you created Eva.")
     main()

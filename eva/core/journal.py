@@ -5,7 +5,6 @@ Pure database operations: write entries, read recent, search semantically.
 Orchestration (flush, distill, LLM calls) lives in memory.py.
 """
 
-import asyncio
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -83,7 +82,7 @@ class JournalDB:
             # Embed the source (rich) when available, fall back to content (summary)
             if self._vectors:
                 embed_text = source or content
-                asyncio.create_task(self._vectors.upsert(entry_id, embed_text, now))
+                await self._vectors.upsert(entry_id, embed_text, now)
             return entry_id
         except Exception as e:
             logger.error(f"JournalDB: failed to write journal — {e}")

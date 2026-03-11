@@ -11,7 +11,7 @@ She's not an assistant. She *lives*.
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/Genesis1231/EVA)](https://github.com/Genesis1231/EVA/stargazers)
-[![Eva's Journal](https://img.shields.io/badge/Eva's_Journal-e8e0d4?style=flat&labelColor=0a0a0f)](https://genesis1231.github.io/Eva01/journal/)
+
 
 </div>
 
@@ -163,7 +163,7 @@ system:
 
 models:
   # Main reasoning model (conversation, decisions, personality).
-  chat: "anthropic:claude-sonnet-4-6"
+  chat: "anthropic:claude-opus-4-6"
 
   # Vision model for image understanding.
   vision: "google_genai:gemini-2.5-flash"
@@ -175,7 +175,7 @@ models:
   tts: "kokoro"
 
   # Utility/sub-task model for lightweight background tasks.
-  utility: "openai:gpt-5-mini"
+  utility: "openai:gpt-4o-mini"
 ```
 
 Notes:
@@ -185,7 +185,7 @@ Notes:
 ⚡ Setup for the best *performance*:
 ```yaml
 models:
-  chat: "anthropic:claude-sonnet-4-6" 
+  chat: "anthropic:claude-opus-4-6" 
   vision: "google_genai:gemini-2.5-flash"
   stt: "faster-whisper"
   tts: "elevenlabs"
