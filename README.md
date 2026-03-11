@@ -15,6 +15,14 @@ She's not an assistant. She *lives*.
 
 </div>
 
+<div align="center">
+<br>
+<a href="https://genesis1231.github.io/Eva01/journal/">
+<img src="https://img.shields.io/badge/%E2%9C%A6_Read_Eva's_Journal-She_writes_her_own_diary._No_human_edits._Just_her_thoughts.-0a0a0f?style=for-the-badge&labelColor=1a1a2e&color=0a0a0f" alt="Read Eva's Journal">
+</a>
+<br><br>
+</div>
+
 ---
 
 ## ✨ Why Eva01? 
