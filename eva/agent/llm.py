@@ -13,6 +13,7 @@ from langchain_core.messages import (
     SystemMessage,
     AIMessage,
     BaseMessage,
+    trim_messages
 )
 
 from config import logger
@@ -23,6 +24,7 @@ class Cortex:
     """EVA's language cortex — wraps LLM + prompt into a single respond() call."""
 
     _TEMPERATURE = 0.8  # creative but not too random
+    _MAX_HISTORY_TOKENS = 8000  # rough limit for context window, leaving room for response
 
     def __init__(
         self,
@@ -56,6 +58,9 @@ class Cortex:
             present_people=present_people,
         )
 
+        # trim to fit context window, keeping recent messages
+        messages = trim_messages(messages, max_tokens=self._MAX_HISTORY_TOKENS, token_counter='approximate')  
+        
         # Only add the kickoff prompt on the initial pass, not on ReAct continuations
         # (where the last message is a ToolMessage from a prior tool call)
         complete_prompt = [SystemMessage(content=system)] + messages

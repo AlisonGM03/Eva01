@@ -73,13 +73,13 @@ class PromptConstructor:
             notes = person.get("notes") or ""
 
             entry = f"{name} ({rel})"
-            if notes:
-                # Take the last note block (most recent impression)
-                blocks = notes.strip().split("\n\n## ")
-                last = blocks[-1] if blocks else ""
-                if last and not last.startswith("## "):
-                    last = "## " + last
-                entry += f"\n{last}"
+            # if notes:
+            #     # Take the last note block (most recent impression)
+            #     blocks = notes.strip().split("\n\n## ")
+            #     last = blocks[-1] if blocks else ""
+            #     if last and not last.startswith("## "):
+            #         last = "## " + last
+            #     entry += f"\n{last}"
 
             entries.append(entry)
 

@@ -8,7 +8,6 @@ Convention for tool files:
 
 import importlib
 import os
-
 from langchain_core.tools import BaseTool
 
 from config import logger
@@ -45,7 +44,7 @@ def handle_tool_error(e: Exception) -> str:
 
 def load_tools(action_buffer: ActionBuffer) -> list[BaseTool]:
     """Scan this folder, import each module, collect tools."""
-    tools: list[BaseTool] = []
+    tools = []
     pkg_dir = os.path.dirname(__file__)
 
     for filename in sorted(os.listdir(pkg_dir)):

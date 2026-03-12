@@ -11,6 +11,6 @@ def make_speak_tool(action_buffer: ActionBuffer):
     async def speak(text: str) -> str:
         """Say something out loud. I use this to speak."""
         await action_buffer.put("speak", text)
-        return f'I said: "{text}"'
+        return text
 
     return speak

@@ -127,21 +127,24 @@ class Brain:
         """Send a sensory input through the graph."""
         self._processing = True
         try:
-            # Extract face IDs from vision metadata
-            face_ids = []
-            if entry.metadata and "faces" in entry.metadata:
-                face_ids = entry.metadata["faces"]
+            # Extract people IDs from vision and audio metadata
+            people_ids = set()
+            if entry.metadata:
+                if "faces" in entry.metadata:
+                    people_ids.update(entry.metadata["faces"])
+                if "speaker_id" in entry.metadata:
+                    people_ids.add(entry.metadata["speaker_id"])
 
             # Track seen people for relationship reflection at flush time.
-            if face_ids:
-                self.memory.add_people_to_session(set(face_ids))
+            if people_ids:
+                self.memory.add_people_to_session(people_ids)
 
             message = HumanMessage(content=entry.content)
 
             await self._graph.ainvoke(
                 EvaState(
                     messages=[message],
-                    present_people=set(face_ids),
+                    present_people=people_ids,
                 ),
                 config=self._config,
             )

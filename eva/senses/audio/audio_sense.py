@@ -129,10 +129,11 @@ class AudioSense:
 
     def _input_loop(self) -> None:
         """Thread: monitors SPACE key, records mic audio, queues it."""
-
+        print("   ... PRESS SPACE to talk to EVA ...\r", end="", flush=True)
+  
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
-
+      
         try:
             tty.setcbreak(fd)
 

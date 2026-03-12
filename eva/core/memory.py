@@ -107,11 +107,16 @@ class MemoryDB:
             # Use tool return values as the distilled content.
             # In journal mode, keep only the first line — external content
             # (webpage summaries, search results) lives after the first \n.
-            parts = [
-                tool_msgs[tc['id']].split('\n', 1)[0] if journal else tool_msgs[tc['id']]
-                for tc in tool_calls
-                if tool_msgs.get(tc['id'])
-            ]
+            parts = []
+            for tc in tool_calls:
+                content = tool_msgs.get(tc['id'])
+                if not content:
+                    continue
+                if journal:
+                    content = content.split('\n', 1)[0]
+                if tc.get('name') == 'speak':
+                    content = f'I said: "{content}"'
+                parts.append(content)
             if parts:
                 result.append(AIMessage(content="\n\n".join(parts)))
 
@@ -209,7 +214,7 @@ class MemoryDB:
             logger.debug("MemoryDB: distilled to nothing, skipping flush.")
             return
 
-        conversation = "\n".join(parts)
+        conversation = "\n\n".join(parts)
         logger.debug(f"MemoryDB: writing journal entry:\n{conversation}")
         
         # Skip journaling for trivially short sessions (e.g. a single observation)

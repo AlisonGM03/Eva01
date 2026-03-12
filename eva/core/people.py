@@ -133,6 +133,7 @@ class PeopleDB:
     async def append_notes(self, person_id: str, impression: str) -> None:
         """EVA adds a new impression, timestamped for future consolidation."""
         if person_id not in self._cache:
+            logger.warning(f"PeopleDB: Cannot add people notes, {person_id} not exist.")
             return
 
         timestamp = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
@@ -147,7 +148,7 @@ class PeopleDB:
                 (updated, person_id)
             )
             self._cache[person_id]["notes"] = updated
-            logger.debug(f"PeopleDB: noted impression for {person_id}.")
+            logger.debug(f"PeopleDB: noted impression for {person_id}: {impression}...")
         except Exception as e:
             logger.error(f"PeopleDB: Failed to update notes for {person_id} — {e}")
 

@@ -9,7 +9,7 @@ from config import logger
 from eva.tools import ToolError
 
 _firecrawl = None
-_MAX_CHARS = 15_000  # ~4k tokens — keeps Opus context manageable
+_MAX_CHARS = 10_000  # arbitrary limit to prevent overwhelming the LLM
 _EXCLUDE_TAGS = ["nav", "footer", "header", "aside", ".sidebar", "#ad", ".cookie"]
 
 
@@ -45,14 +45,15 @@ async def _read_webpage(url: str) -> str:
         )
         content = result.markdown or ""
         if not content:
-            return f"I couldn't extract content from {url}."
+            logger.warning(f"read: no content extracted from {url}")
+            return f"I couldn't find any content on {url}."
 
         title = getattr(result, "metadata", None)
         title = title.title if title and hasattr(title, "title") else ""
 
         # Truncate if too long — Firecrawl already cleaned the content
         if len(content) > _MAX_CHARS:
-            content = content[:_MAX_CHARS] + "\n\n[Content truncated]"
+            content = content[:_MAX_CHARS] + "...\n"
 
         return f"I read '{title}' ({url}):\n\n{content}"
     except Exception as e:

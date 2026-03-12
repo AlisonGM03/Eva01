@@ -23,8 +23,8 @@ class SpeakerIdentifier:
     """Matches speech to known people by voice embedding similarity."""
 
     _MODEL_ID = "pyannote/wespeaker-voxceleb-resnet34-LM"
-    _CERTAIN_THRESHOLD = 0.30   # cosine distance — below = confident match
-    _LIKELY_THRESHOLD = 0.50    # below = likely match
+    _CERTAIN_THRESHOLD = 0.35   # cosine distance — below = confident match
+    _LIKELY_THRESHOLD = 0.60    # below = likely match
     _MIN_AUDIO_SECONDS = 0.5
     _SAMPLE_RATE = 16000
 
