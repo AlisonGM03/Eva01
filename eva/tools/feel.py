@@ -5,9 +5,9 @@ from config import logger
 
 
 @tool
-async def feel(feeling: str, reasoning: str) -> str:
+async def feel(feeling: str, reflection: str) -> str:
     """
     Express what I feel under 10 words. sometimes I use this to log my inner state.
-    I reason to help myself reflect, but it won't be shared.
+    I reflect to help myself reason, but it won't be shared.
     """
     return f"[I felt {feeling}]"

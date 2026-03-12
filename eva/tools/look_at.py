@@ -51,7 +51,7 @@ def _screenshot(url: str) -> str:
             )
         except Exception as e:
             logger.error(f"Failed to initialize Html2Image: {e}")
-            return f"I can't take a screenshot: {e}"
+            return f"I can't look at the url: {e}"
 
         hti.screenshot(url=url, save_as="shot.png")
         png_path = Path(tmp) / "shot.png"
