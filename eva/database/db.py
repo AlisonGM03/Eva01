@@ -47,7 +47,7 @@ class SQLiteHandler:
 
             self._db_dir.mkdir(parents=True, exist_ok=True)
             db_path = self._db_dir / db_name
-            conn = await aiosqlite.connect(db_path)
+            conn = await aiosqlite.connect(db_path, check_same_thread=False)
             conn.row_factory = aiosqlite.Row
             await self._try_load_vec_extension(conn)
             await conn.execute("PRAGMA journal_mode=WAL;")
